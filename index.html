@@ -4877,8 +4877,8 @@ window.setBattleRoomResult = async (roomId, result) => {
 // 방식 1 (기본): Firestore sessions에 저장 후 sid만 URL로 전달 → 티스토리 /3
 // 방식 2 (진단용): battle_v6.html 파일로 직접 열기 (로컬 테스트용)
 // 방식 3 (향후): iframe 방식
-const BATTLE_MAP_MODE = 'local'; // 'tistory' | 'local'
-const BATTLE_MAP_LOCAL_PATH = 'battle_v9.html'; // 로컬 파일 테스트 시 경로
+const BATTLE_MAP_MODE = 'local'; // 깃허브 Pages에서는 'local' 모드 사용
+const BATTLE_MAP_LOCAL_PATH = 'https://blueyou-web.github.io/oc-community-homepage/battle.html';
 
 async function _openBattleMap(roomId) {
     const loginId = state.userAccount?.loginId;
@@ -4947,7 +4947,7 @@ async function _openBattleMap(roomId) {
     if (BATTLE_MAP_MODE === 'local') {
         window.open(`${BATTLE_MAP_LOCAL_PATH}?${sidParam}${roomParam}`, '_blank');
     } else {
-        window.open(`https://oc-community-homepage.tistory.com/3?${sidParam}${roomParam}`, '_blank');
+        window.open(`https://blueyou-web.github.io/oc-community-homepage/index.html?${sidParam}${roomParam}`, '_blank');
     }
 }
 
