@@ -1,7 +1,5 @@
-// Firebase SDK 로드
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9/firebase-app.js";
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/9/firebase-firestore.js";
-
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 const firebaseConfig = {
   apiKey: "AIzaSyCokBoeWEMFP1lXa3TRyeiL4NZtJdPVkjM",
   authDomain: "qwqweqwe-17b83.firebaseapp.com",
