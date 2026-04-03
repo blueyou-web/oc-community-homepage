@@ -1,3 +1,4 @@
+/* 넷플릭스 스타일 테마 컬러 */
 :root {
     --netflix-black: #141414;
     --netflix-dark-gray: #181818;
@@ -7,6 +8,26 @@
     --border-color: #333;
 }
 
+/* =========================================
+   [추가됨] 예쁜 다크블랙 커스텀 스크롤바 
+   ========================================= */
+::-webkit-scrollbar {
+    width: 8px;  /* 세로 스크롤바 너비 */
+    height: 8px; /* 가로 스크롤바 높이 */
+}
+::-webkit-scrollbar-track {
+    background: var(--netflix-black); /* 스크롤바 길 배경색 */
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: #333; /* 스크롤바 색상 */
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #555; /* 마우스 올렸을 때 색상 */
+}
+
+/* 기본 리셋 */
 * {
     box-sizing: border-box;
     margin: 0;
@@ -20,12 +41,13 @@ body {
     height: 100vh;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: hidden; /* 전체 페이지 스크롤 방지 */
 }
 
+/* 상단 헤더 */
 .netflix-header {
     height: 68px;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.7) 10%, rgba(0,0,0,0));
+    background: linear-gradient(to bottom, rgba(0,0,0,0.8) 10%, rgba(0,0,0,0));
     background-color: var(--netflix-black);
     display: flex;
     justify-content: space-between;
@@ -65,15 +87,18 @@ body {
     border-color: var(--text-white);
 }
 
+/* 메인 레이아웃 */
 .main-container {
     margin-top: 68px;
     flex: 1;
     display: flex;
+    flex-direction: row; /* 기본은 가로 배치 */
     padding: 20px;
     gap: 20px;
     height: calc(100vh - 68px);
 }
 
+/* 비디오 영역 */
 .video-section {
     flex: 7;
     display: flex;
@@ -84,9 +109,11 @@ body {
 .video-wrapper {
     width: 100%;
     position: relative;
-    padding-top: 56.25%;
+    padding-top: 56.25%; /* 16:9 비율 강제 유지 */
     background-color: black;
     box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    border-radius: 4px;
+    overflow: hidden;
 }
 
 .video-wrapper iframe {
@@ -97,6 +124,7 @@ body {
     height: 100%;
 }
 
+/* 채팅 영역 */
 .chat-section {
     flex: 3;
     background-color: var(--netflix-dark-gray);
@@ -105,6 +133,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-height: 0; /* 반응형 세로 배치 시 채팅 스크롤 보장용 */
 }
 
 .chat-header {
@@ -124,6 +153,7 @@ body {
     gap: 15px;
 }
 
+/* 메시지 애니메이션 & 디자인 */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(5px); }
     to { opacity: 1; transform: translateY(0); }
@@ -200,6 +230,7 @@ body {
     border-top: 1px solid var(--border-color);
     display: flex;
     gap: 10px;
+    background-color: var(--netflix-dark-gray);
 }
 
 #message-input {
@@ -241,7 +272,46 @@ body {
     border-radius: 2px;
     transition: 0.2s;
 }
+
 .netflix-btn-small:hover {
     color: var(--text-white);
     border-color: var(--text-white);
+}
+
+/* =========================================
+   [추가됨] 반응형(Responsive) 웹 디자인 
+   창 크기가 900px 이하로 좁아질 때 적용됨
+   ========================================= */
+@media screen and (max-width: 900px) {
+    .main-container {
+        flex-direction: column; /* 세로 배치로 변경 (영상 위, 채팅 아래) */
+        padding: 10px; /* 모바일/작은 창에 맞춰 여백 줄임 */
+        gap: 10px;
+    }
+
+    .video-section {
+        flex: none;
+        width: 100%; /* 영상 가로 폭 100% 꽉 채우기 */
+    }
+
+    .chat-section {
+        flex: 1; /* 남은 화면 높이를 채팅창이 모두 차지함 */
+        width: 100%;
+    }
+
+    /* 좁은 화면에서 상단 헤더 글자 크기 및 간격 조절 */
+    .logo {
+        font-size: 20px; 
+    }
+    .user-info {
+        gap: 5px;
+    }
+    .netflix-btn-small {
+        font-size: 0.7rem;
+        padding: 4px 6px;
+    }
+    #profile-img {
+        width: 24px;
+        height: 24px;
+    }
 }
