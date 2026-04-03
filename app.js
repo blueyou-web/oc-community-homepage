@@ -32,7 +32,6 @@ const userId   = localStorage.getItem('chzzk_uid') || Math.random().toString(36)
 localStorage.setItem('chzzk_uid', userId);
 let userName   = localStorage.getItem('chzzk_name') || `Guest_${Math.floor(Math.random() * 1000)}`;
 let userPic    = localStorage.getItem('chzzk_pic')  || defaultProfile;
-let isSoundOn  = localStorage.getItem('chzzk_sound') !== 'off';
 let amIHost    = false;
 let myJoinedAt = null;
 let isInitialLoad = true;
@@ -97,18 +96,7 @@ window.addEventListener('load', async () => {
     displayNameSpan.textContent = userName;
     profileImg.src = userPic;
 
-    // ===== 소리 버튼 =====
-    const updateSoundBtn = () => {
-        soundToggleBtn.textContent       = isSoundOn ? '🔔' : '🔇';
-        soundToggleBtn.title             = isSoundOn ? '알림음 끄기' : '알림음 켜기';
-        soundToggleBtn.style.opacity     = isSoundOn ? '1' : '0.45';
-    };
-    updateSoundBtn();
-    soundToggleBtn.addEventListener('click', () => {
-        isSoundOn = !isSoundOn;
-        localStorage.setItem('chzzk_sound', isSoundOn ? 'on' : 'off');
-        updateSoundBtn();
-    });
+    // 소리 버튼은 index.html의 인라인 스크립트에서 독립 관리
 
     // ===== 아바타 목록 =====
     const AVATARS = [
@@ -301,7 +289,7 @@ window.addEventListener('load', async () => {
             const added = snapshot.docChanges().filter(c => c.type === "added");
             if (added.length > 0) {
                 const latest = added[added.length - 1].doc.data();
-                if (latest.user !== userName && latest.type === "normal" && isSoundOn)
+                if (latest.user !== userName && latest.type === "normal" && window.__isSoundOn())
                     playNotificationSound();
             }
         }
