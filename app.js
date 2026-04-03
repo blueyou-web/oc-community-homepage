@@ -39,6 +39,7 @@ const displayNameSpan   = document.getElementById('user-display-name');
 const changeNameBtn     = document.getElementById('change-name-btn');
 const profileImg        = document.getElementById('profile-img');
 const clearChatBtn      = document.getElementById('clear-chat-btn');
+const soundToggleBtn    = document.getElementById('sound-toggle-btn');
 const participantToggle = document.getElementById('participant-toggle');
 const participantList   = document.getElementById('participant-list');
 const userCountSpan     = document.getElementById('user-count');
@@ -82,6 +83,20 @@ const playNotificationSound = () => {
     } catch (e) {}
 };
 let isInitialLoad = true;
+let isSoundOn     = localStorage.getItem('chzzk_sound') !== 'off';
+
+const updateSoundBtn = () => {
+    soundToggleBtn.textContent = isSoundOn ? '🔔' : '🔇';
+    soundToggleBtn.title       = isSoundOn ? '알림음 끄기' : '알림음 켜기';
+    soundToggleBtn.style.color = isSoundOn ? '' : 'var(--netflix-red)';
+};
+updateSoundBtn();
+
+soundToggleBtn.addEventListener('click', () => {
+    isSoundOn = !isSoundOn;
+    localStorage.setItem('chzzk_sound', isSoundOn ? 'on' : 'off');
+    updateSoundBtn();
+});
 
 // ===== 유저 정보 =====
 const defaultProfile = "https://api.dicebear.com/8.x/bottts/svg?seed=default&backgroundColor=333333";
@@ -327,7 +342,7 @@ onSnapshot(q, (snapshot) => {
         if (added.length > 0) {
             const latest = added[added.length - 1].doc.data();
             if (latest.user !== userName && latest.type === "normal")
-                playNotificationSound();
+                if (isSoundOn) playNotificationSound();
         }
     }
     isInitialLoad = false;
