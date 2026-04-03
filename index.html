@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chzzk Together (Netflix Style)</title>
+    <title>Chzzk Together (Netflix Style) - LCK</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,26 +13,26 @@
             <img id="profile-img" src="" alt="프로필" title="클릭해서 프로필 변경">
             <span id="user-display-name">Guest</span>
             <button id="change-name-btn" class="netflix-btn-small">이름 변경</button>
-            <button id="clear-chat-btn" class="netflix-btn-small">채팅 지우기</button>
+            <button id="clear-chat-btn" class="netflix-btn-small" style="color: var(--netflix-red);">채팅 지우기</button>
         </div>
     </header>
 
     <main class="main-container">
         <section class="video-section">
             <div class="video-wrapper">
-                <iframe 
-                    id="chzzk-player"
-                    src="https://chzzk.naver.com/live/채널_ID_입력/embed" 
-                    frameborder="0" 
-                    allowfullscreen>
-                </iframe>
+                <iframe id="chzzk-player" src="https://chzzk.naver.com/live/9381e7d6816e6d915a44a13c0195b202/embed" frameborder="0" allowfullscreen></iframe>
             </div>
         </section>
 
         <aside class="chat-section">
-            <div class="chat-header">실시간 대화</div>
-            <div id="chat-messages" class="chat-messages">
-                </div>
+            <div class="participant-container">
+                <div class="participant-header">지금 함께 보는 중 <span id="user-count">0</span></div>
+                <div id="participant-list" class="participant-list">
+                    </div>
+            </div>
+
+            <div id="chat-messages" class="chat-messages"></div>
+            
             <form id="chat-form" class="chat-input-area">
                 <input type="text" id="message-input" placeholder="친구에게 메시지 보내기..." autocomplete="off" required>
                 <button type="submit" class="netflix-btn">전송</button>
