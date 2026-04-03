@@ -23,7 +23,6 @@ body {
     overflow: hidden;
 }
 
-/* 상단 헤더 */
 .netflix-header {
     height: 68px;
     background: linear-gradient(to bottom, rgba(0,0,0,0.7) 10%, rgba(0,0,0,0));
@@ -48,7 +47,7 @@ body {
 .user-info {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     color: var(--text-gray);
 }
 
@@ -66,7 +65,6 @@ body {
     border-color: var(--text-white);
 }
 
-/* 메인 레이아웃 */
 .main-container {
     margin-top: 68px;
     flex: 1;
@@ -126,7 +124,6 @@ body {
     gap: 15px;
 }
 
-/* 메시지 공통 애니메이션 */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(5px); }
     to { opacity: 1; transform: translateY(0); }
@@ -139,7 +136,6 @@ body {
     animation: fadeIn 0.3s ease forwards;
 }
 
-/* 1. 시스템 메시지 스타일 */
 .message.system {
     justify-content: center;
     margin: 5px 0;
@@ -154,7 +150,6 @@ body {
     letter-spacing: -0.5px;
 }
 
-/* 2. 일반 메시지 스타일 */
 .chat-profile-pic {
     width: 30px;
     height: 30px;
@@ -200,7 +195,6 @@ body {
     background-color: var(--netflix-red);
 }
 
-/* 하단 입력창 */
 .chat-input-area {
     padding: 15px;
     border-top: 1px solid var(--border-color);
