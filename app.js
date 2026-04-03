@@ -1,81 +1,92 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+// =====================================================
+//  CHZZK Together — app.js
+//  채팅: Firestore  |  참여자/방장: Realtime Database
+// =====================================================
+
+import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import {
-    getFirestore,
-    collection,
-    addDoc,
-    query,
-    orderBy,
-    onSnapshot,
-    doc,         // ✅ 추가 (doc is not defined 에러 수정)
-    setDoc,      // ✅ 추가
-    deleteDoc,   // ✅ 추가
-    getDocs,     // ✅ 추가
-    writeBatch   // ✅ 추가
+    getFirestore, collection, addDoc,
+    query, orderBy, onSnapshot,
+    getDocs, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import {
+    getDatabase,
+    ref, set, onValue,
+    onDisconnect
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
 // ===== Firebase 설정 =====
+// ⚠️  Firebase 콘솔 → Realtime Database → 데이터 탭 상단 URL을 databaseURL에 입력
 const firebaseConfig = {
-    apiKey: "AIzaSyCokBoeWEMFP1lXa3TRyeiL4NZtJdPVkjM",
-    authDomain: "qwqweqwe-17b83.firebaseapp.com",
-    projectId: "qwqweqwe-17b83",
-    storageBucket: "qwqweqwe-17b83.firebasestorage.app",
+    apiKey:            "AIzaSyCokBoeWEMFP1lXa3TRyeiL4NZtJdPVkjM",
+    authDomain:        "qwqweqwe-17b83.firebaseapp.com",
+    projectId:         "qwqweqwe-17b83",
+    storageBucket:     "qwqweqwe-17b83.firebasestorage.app",
     messagingSenderId: "687682911187",
-    appId: "1:687682911187:web:f8a641d183e6f4bfd30d26"
+    appId:             "1:687682911187:web:f8a641d183e6f4bfd30d26",
+    databaseURL:       "https://qwqweqwe-17b83-default-rtdb.firebaseio.com"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const app  = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const rtdb = getDatabase(app);
 
-// ===== DOM 요소 =====
-const chatForm           = document.getElementById('chat-form');
-const messageInput       = document.getElementById('message-input');
-const chatMessages       = document.getElementById('chat-messages');
-const displayNameSpan    = document.getElementById('user-display-name');
-const changeNameBtn      = document.getElementById('change-name-btn');
-const profileImg         = document.getElementById('profile-img');
-const clearChatBtn       = document.getElementById('clear-chat-btn');
-const participantToggle  = document.getElementById('participant-toggle');
-const participantList    = document.getElementById('participant-list');
-const userCountSpan      = document.getElementById('user-count');
-const toggleArrow        = participantToggle.querySelector('.toggle-arrow');
-
-// 아바타 모달
+// ===== DOM =====
+const chatForm          = document.getElementById('chat-form');
+const messageInput      = document.getElementById('message-input');
+const chatMessages      = document.getElementById('chat-messages');
+const displayNameSpan   = document.getElementById('user-display-name');
+const changeNameBtn     = document.getElementById('change-name-btn');
+const profileImg        = document.getElementById('profile-img');
+const clearChatBtn      = document.getElementById('clear-chat-btn');
+const participantToggle = document.getElementById('participant-toggle');
+const participantList   = document.getElementById('participant-list');
+const userCountSpan     = document.getElementById('user-count');
+const toggleArrow       = participantToggle.querySelector('.toggle-arrow');
 const avatarModal       = document.getElementById('avatar-modal');
 const avatarGrid        = document.getElementById('avatar-grid');
 const avatarConfirmBtn  = document.getElementById('avatar-confirm-btn');
 const avatarCancelBtn   = document.getElementById('avatar-cancel-btn');
 
-// ===== 넷플릭스 스타일 아바타 목록 =====
-// DiceBear API로 다양한 캐릭터 아바타 생성
+// ===== 알림음 =====
+const alertSound  = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+let isInitialLoad = true;
+
+// ===== 유저 정보 =====
+const defaultProfile = "https://api.dicebear.com/8.x/bottts/svg?seed=default&backgroundColor=333333";
+const userId = localStorage.getItem('chzzk_uid') || Math.random().toString(36).substring(2, 10);
+localStorage.setItem('chzzk_uid', userId);
+
+let userName = localStorage.getItem('chzzk_name') || `Guest_${Math.floor(Math.random() * 1000)}`;
+let userPic  = localStorage.getItem('chzzk_pic')  || defaultProfile;
+let amIHost  = false;
+let myJoinedAt = null; // 최초 입장 시간 보존용
+
+displayNameSpan.textContent = userName;
+profileImg.src = userPic;
+
+// ===== 아바타 목록 =====
 const AVATARS = [
-    // 시리즈 1: Lorelei (애니메이션 스타일 인물)
-    { url: 'https://api.dicebear.com/8.x/lorelei/svg?seed=Felix&backgroundColor=e50914',    label: 'Felix'    },
-    { url: 'https://api.dicebear.com/8.x/lorelei/svg?seed=Jasper&backgroundColor=1565c0',   label: 'Jasper'   },
-    { url: 'https://api.dicebear.com/8.x/lorelei/svg?seed=Mimi&backgroundColor=2e7d32',     label: 'Mimi'     },
-    { url: 'https://api.dicebear.com/8.x/lorelei/svg?seed=Nova&backgroundColor=6a1b9a',     label: 'Nova'     },
-    // 시리즈 2: Bottts (로봇 캐릭터)
-    { url: 'https://api.dicebear.com/8.x/bottts/svg?seed=Ranger&backgroundColor=bf360c',    label: 'Ranger'   },
-    { url: 'https://api.dicebear.com/8.x/bottts/svg?seed=Pixel&backgroundColor=00695c',     label: 'Pixel'    },
-    { url: 'https://api.dicebear.com/8.x/bottts/svg?seed=Spark&backgroundColor=1a237e',     label: 'Spark'    },
-    { url: 'https://api.dicebear.com/8.x/bottts/svg?seed=Zyx&backgroundColor=4a148c',       label: 'Zyx'      },
-    // 시리즈 3: Fun Emoji
-    { url: 'https://api.dicebear.com/8.x/fun-emoji/svg?seed=Leo&backgroundColor=e65100',    label: 'Leo'      },
-    { url: 'https://api.dicebear.com/8.x/fun-emoji/svg?seed=Coco&backgroundColor=004d40',   label: 'Coco'     },
-    { url: 'https://api.dicebear.com/8.x/fun-emoji/svg?seed=Luna&backgroundColor=880e4f',   label: 'Luna'     },
-    { url: 'https://api.dicebear.com/8.x/fun-emoji/svg?seed=Kai&backgroundColor=263238',    label: 'Kai'      },
+    { url: 'https://api.dicebear.com/8.x/lorelei/svg?seed=Felix&backgroundColor=e50914',   label: 'Felix'  },
+    { url: 'https://api.dicebear.com/8.x/lorelei/svg?seed=Jasper&backgroundColor=1565c0',  label: 'Jasper' },
+    { url: 'https://api.dicebear.com/8.x/lorelei/svg?seed=Mimi&backgroundColor=2e7d32',    label: 'Mimi'   },
+    { url: 'https://api.dicebear.com/8.x/lorelei/svg?seed=Nova&backgroundColor=6a1b9a',    label: 'Nova'   },
+    { url: 'https://api.dicebear.com/8.x/bottts/svg?seed=Ranger&backgroundColor=bf360c',   label: 'Ranger' },
+    { url: 'https://api.dicebear.com/8.x/bottts/svg?seed=Pixel&backgroundColor=00695c',    label: 'Pixel'  },
+    { url: 'https://api.dicebear.com/8.x/bottts/svg?seed=Spark&backgroundColor=1a237e',    label: 'Spark'  },
+    { url: 'https://api.dicebear.com/8.x/bottts/svg?seed=Zyx&backgroundColor=4a148c',      label: 'Zyx'    },
+    { url: 'https://api.dicebear.com/8.x/fun-emoji/svg?seed=Leo&backgroundColor=e65100',   label: 'Leo'    },
+    { url: 'https://api.dicebear.com/8.x/fun-emoji/svg?seed=Coco&backgroundColor=004d40',  label: 'Coco'   },
+    { url: 'https://api.dicebear.com/8.x/fun-emoji/svg?seed=Luna&backgroundColor=880e4f',  label: 'Luna'   },
+    { url: 'https://api.dicebear.com/8.x/fun-emoji/svg?seed=Kai&backgroundColor=263238',   label: 'Kai'    },
 ];
 
-// 아바타 그리드 생성
 let selectedAvatarUrl = null;
-
 AVATARS.forEach((avatar) => {
     const item = document.createElement('div');
     item.className = 'avatar-option';
     item.dataset.url = avatar.url;
-    item.innerHTML = `
-        <img src="${avatar.url}" alt="${avatar.label}" loading="lazy">
-        <div class="avatar-check">✓</div>
-    `;
+    item.innerHTML = `<img src="${avatar.url}" alt="${avatar.label}" loading="lazy"><div class="avatar-check">✓</div>`;
     item.addEventListener('click', () => {
         document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
         item.classList.add('selected');
@@ -85,34 +96,18 @@ AVATARS.forEach((avatar) => {
     avatarGrid.appendChild(item);
 });
 
-// 모달 열기
 const openAvatarModal = () => {
     selectedAvatarUrl = null;
     avatarConfirmBtn.disabled = true;
     document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
-
-    // 현재 내 사진과 같은 아바타가 있으면 미리 선택 표시
-    const currentMatch = avatarGrid.querySelector(`[data-url="${userPic}"]`);
-    if (currentMatch) {
-        currentMatch.classList.add('selected');
-        selectedAvatarUrl = userPic;
-        avatarConfirmBtn.disabled = false;
-    }
-
+    const escaped = userPic.replace(/"/g, '\\"');
+    const currentMatch = avatarGrid.querySelector(`[data-url="${escaped}"]`);
+    if (currentMatch) { currentMatch.classList.add('selected'); selectedAvatarUrl = userPic; avatarConfirmBtn.disabled = false; }
     avatarModal.style.display = 'flex';
 };
-
-// 모달 닫기
-const closeAvatarModal = () => {
-    avatarModal.style.display = 'none';
-};
-
+const closeAvatarModal = () => { avatarModal.style.display = 'none'; };
 avatarCancelBtn.addEventListener('click', closeAvatarModal);
-avatarModal.addEventListener('click', (e) => {
-    if (e.target === avatarModal) closeAvatarModal();
-});
-
-// 선택 완료
+avatarModal.addEventListener('click', (e) => { if (e.target === avatarModal) closeAvatarModal(); });
 avatarConfirmBtn.addEventListener('click', async () => {
     if (!selectedAvatarUrl) return;
     userPic = selectedAvatarUrl;
@@ -122,69 +117,68 @@ avatarConfirmBtn.addEventListener('click', async () => {
     await updatePresence();
 });
 
-// ===== 알림음 =====
-const alertSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-let isInitialLoad = true;
+// =====================================================
+//  🔥 REALTIME DATABASE 참여자 / 방장 시스템
+//
+//  동작 원리:
+//  1. 접속 시 participants/{userId} 노드를 생성
+//  2. onDisconnect().remove() 등록
+//     → 네트워크 끊김/창 닫힘/강제종료 시 Firebase 서버가 자동 삭제
+//  3. joinedAt(최초 입장 시간) 기준 정렬 → 가장 작은 값 = 방장
+//  4. 이름/사진 변경 시 joinedAt은 그대로 유지
+// =====================================================
 
-// ===== 유저 정보 =====
-const defaultProfile = "https://wallpapers.com/images/hd/netflix-profile-pictures-1000-x-1000-qo9h82134t9nv0j0.jpg";
-const userId   = localStorage.getItem('chzzk_uid') || Math.random().toString(36).substring(2, 10);
-localStorage.setItem('chzzk_uid', userId);
-
-let userName   = localStorage.getItem('chzzk_name') || `Guest_${Math.floor(Math.random() * 1000)}`;
-let userPic    = localStorage.getItem('chzzk_pic')  || defaultProfile;
-let amIHost    = false;
-
-displayNameSpan.textContent = userName;
-profileImg.src = userPic;
-
-// ===== 참여자 목록 (방장 시스템) =====
-const userRef = doc(db, "participants", userId);
+const presenceRef       = ref(rtdb, `participants/${userId}`);
+const allParticipants   = ref(rtdb, 'participants');
 
 const updatePresence = async () => {
-    await setDoc(userRef, {
-        name: userName,
-        pic: userPic,
-        joinedAt: Date.now()
-    }, { merge: true });
+    // myJoinedAt: 최초 입장 시간을 세션 내내 보존
+    if (!myJoinedAt) myJoinedAt = Date.now();
+
+    await set(presenceRef, {
+        name:     userName,
+        pic:      userPic,
+        joinedAt: myJoinedAt
+    });
+
+    // ✅ 핵심: 연결 끊기면 Firebase 서버가 이 노드를 자동 삭제
+    //    (브라우저가 꺼지거나, 네트워크가 끊겨도 동작)
+    await onDisconnect(presenceRef).remove();
 };
 
-// 창 닫을 때 참여자 목록에서 제거
-window.addEventListener('beforeunload', () => {
-    deleteDoc(userRef);
-});
-
-// 참여자 목록 실시간 감시 (첫 번째 입장자 = 방장)
-const pQuery = query(collection(db, "participants"), orderBy("joinedAt", "asc"));
-
-onSnapshot(pQuery, (snapshot) => {
+// 참여자 목록 실시간 반영
+onValue(allParticipants, (snapshot) => {
+    const data = snapshot.val();
     participantList.innerHTML = '';
-    let count = 0;
 
-    snapshot.forEach((docSnap, index) => {
-        count++;
-        const p = docSnap.data();
+    if (!data) {
+        userCountSpan.textContent = '0';
+        amIHost = false;
+        return;
+    }
+
+    // joinedAt 오름차순 정렬 (가장 먼저 입장한 사람이 방장)
+    const sorted = Object.entries(data).sort(([, a], [, b]) => a.joinedAt - b.joinedAt);
+
+    sorted.forEach(([uid, p], index) => {
         const isHost = (index === 0);
-        const isMe   = (docSnap.id === userId);
-
+        const isMe   = (uid === userId);
         if (isMe) amIHost = isHost;
 
         const item = document.createElement('div');
         item.className = 'participant-item' + (isMe ? ' is-me' : '');
-
         item.innerHTML = `
             <img src="${p.pic || defaultProfile}" class="participant-pic"
                  onerror="this.src='${defaultProfile}'">
             <div class="participant-info">
                 <span class="participant-name">${escapeHtml(p.name)}</span>
-                ${isHost ? '<span class="host-badge">방장</span>' : ''}
-                ${isMe   ? '<span class="me-badge">나</span>'   : ''}
-            </div>
-        `;
+                ${isHost ? '<span class="host-badge">👑 방장</span>' : ''}
+                ${isMe   ? '<span class="me-badge">나</span>'        : ''}
+            </div>`;
         participantList.appendChild(item);
     });
 
-    userCountSpan.textContent = count;
+    userCountSpan.textContent = sorted.length;
 });
 
 // 참여자 패널 토글
@@ -197,17 +191,13 @@ participantToggle.addEventListener('click', () => {
 
 // ===== 시스템 메시지 =====
 const sendSystemMessage = async (text) => {
-    await addDoc(collection(db, "shared_chat"), {
-        type: "system",
-        text: text,
-        timestamp: Date.now()
-    });
+    await addDoc(collection(db, "shared_chat"), { type: "system", text, timestamp: Date.now() });
 };
 
-// ===== 입장 처리 =====
+// ===== 입장 =====
 window.addEventListener('load', async () => {
     await updatePresence();
-    sendSystemMessage(`${userName}님이 입장하셨습니다.`);
+    await sendSystemMessage(`${userName}님이 입장하셨습니다.`);
 });
 
 // ===== 이름 변경 =====
@@ -218,32 +208,28 @@ changeNameBtn.addEventListener('click', async () => {
         userName = newName.trim();
         localStorage.setItem('chzzk_name', userName);
         displayNameSpan.textContent = userName;
-        await updatePresence();
+        await updatePresence(); // joinedAt은 myJoinedAt으로 보존
         await sendSystemMessage(`'${oldName}'님이 '${userName}'(으)로 이름을 변경했습니다.`);
     }
 });
 
-// ===== 프로필 사진 변경 (모달) =====
+// ===== 프로필 변경 =====
 profileImg.addEventListener('click', openAvatarModal);
 
 // ===== 채팅 지우기 (방장 전용) =====
 clearChatBtn.addEventListener('click', async () => {
-    if (!amIHost) {
-        alert("권한이 없습니다! 방장만 채팅을 지울 수 있습니다.");
-        return;
-    }
-    if (!confirm("정말 모든 채팅 내역을 삭제하시겠습니까?\n이 작업은 복구할 수 없습니다.")) return;
-
+    if (!amIHost) { alert("권한이 없습니다! 방장만 채팅을 지울 수 있습니다."); return; }
+    if (!confirm("정말 모든 채팅 내역을 삭제하시겠습니까?")) return;
     try {
-        const querySnapshot = await getDocs(collection(db, "shared_chat"));
+        const snap = await getDocs(collection(db, "shared_chat"));
         const batch = writeBatch(db);
-        querySnapshot.forEach((d) => batch.delete(d.ref));
+        snap.forEach((d) => batch.delete(d.ref));
         await batch.commit();
         chatMessages.innerHTML = '';
         alert("채팅이 청소되었습니다!");
-    } catch (error) {
-        console.error("채팅 삭제 오류:", error);
-        alert("오류 발생: Firebase 권한(Rules) 설정을 확인해주세요.");
+    } catch (err) {
+        console.error("채팅 삭제 오류:", err);
+        alert("오류: Firebase Rules 설정을 확인해주세요.");
     }
 });
 
@@ -252,77 +238,59 @@ chatForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const message = messageInput.value.trim();
     if (!message) return;
-
     try {
         await addDoc(collection(db, "shared_chat"), {
-            type: "normal",
-            user: userName,
-            text: message,
-            profilePic: userPic,
-            timestamp: Date.now()
+            type: "normal", user: userName,
+            text: message, profilePic: userPic, timestamp: Date.now()
         });
         messageInput.value = '';
         messageInput.focus();
-    } catch (error) {
-        console.error("전송 에러:", error);
-    }
+    } catch (err) { console.error("전송 에러:", err); }
 });
 
-// ===== 메시지 실시간 수신 =====
+// ===== 메시지 수신 =====
 const q = query(collection(db, "shared_chat"), orderBy("timestamp", "asc"));
-
 onSnapshot(q, (snapshot) => {
     snapshot.docChanges().forEach((change) => {
         if (change.type !== "added") return;
-
         const data = change.doc.data();
         const messageId = `msg-${change.doc.id}`;
         if (document.getElementById(messageId)) return;
 
-        const messageDiv = document.createElement('div');
-        messageDiv.id = messageId;
-        messageDiv.classList.add('message');
+        const div = document.createElement('div');
+        div.id = messageId;
+        div.classList.add('message');
 
         if (data.type === "system") {
-            messageDiv.classList.add('system');
-            messageDiv.innerHTML = `<span class="system-text">${escapeHtml(data.text)}</span>`;
+            div.classList.add('system');
+            div.innerHTML = `<span class="system-text">${escapeHtml(data.text)}</span>`;
         } else {
-            const isMe = data.user === userName;
-            if (isMe) messageDiv.classList.add('my-message');
-            messageDiv.innerHTML = `
+            if (data.user === userName) div.classList.add('my-message');
+            div.innerHTML = `
                 <img src="${data.profilePic || defaultProfile}" class="chat-profile-pic"
                      onerror="this.src='${defaultProfile}'">
                 <div class="message-content">
                     <span class="message-user">${escapeHtml(data.user)}</span>
                     <span class="message-text">${escapeHtml(data.text)}</span>
-                </div>
-            `;
+                </div>`;
         }
-
-        chatMessages.appendChild(messageDiv);
+        chatMessages.appendChild(div);
     });
 
-    // 알림음: 내 메시지 아닌 경우에만
     if (!isInitialLoad) {
         const added = snapshot.docChanges().filter(c => c.type === "added");
         if (added.length > 0) {
             const latest = added[added.length - 1].doc.data();
-            if (latest.user !== userName && latest.type === "normal") {
+            if (latest.user !== userName && latest.type === "normal")
                 alertSound.play().catch(() => {});
-            }
         }
     }
-
     isInitialLoad = false;
     chatMessages.scrollTop = chatMessages.scrollHeight;
 });
 
-// ===== XSS 방지용 이스케이프 =====
+// ===== XSS 방지 =====
 function escapeHtml(text = '') {
-    return text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+    return text.replace(/&/g,'&amp;').replace(/</g,'&lt;')
+               .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
