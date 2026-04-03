@@ -12,7 +12,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// DOM 요소
 const chatForm = document.getElementById('chat-form');
 const messageInput = document.getElementById('message-input');
 const chatMessages = document.getElementById('chat-messages');
@@ -90,50 +89,54 @@ chatForm.addEventListener('submit', async (e) => {
     }
 });
 
-// 실시간 채팅 수신 및 화면 렌더링
+// 실시간 채팅 수신 및 화면 렌더링 (새로고침 깜빡임 해결 부분)
 const q = query(collection(db, "shared_chat"), orderBy("timestamp", "asc"));
 
 onSnapshot(q, (snapshot) => {
-    chatMessages.innerHTML = ''; 
-    
-    snapshot.forEach((doc) => {
-        const data = doc.data();
-        if (!data.timestamp) return; 
+    // 변경된(새로 추가된) 문서만 확인하여 맨 아래에 이어 붙입니다.
+    snapshot.docChanges().forEach((change) => {
+        if (change.type === "added") {
+            const data = change.doc.data();
+            if (!data.timestamp) return; // 서버 시간 기록 전이면 무시
 
-        const messageDiv = document.createElement('div');
-        messageDiv.classList.add('message');
-        
-        // 시스템 메시지 UI
-        if (data.type === "system") {
-            messageDiv.classList.add('system');
-            messageDiv.innerHTML = `<span class="system-text">${data.text}</span>`;
-        } 
-        // 일반 메시지 UI
-        else {
-            if (data.user === userName) messageDiv.classList.add('my-message');
-            messageDiv.innerHTML = `
-                <img src="${data.profilePic || defaultProfile}" class="chat-profile-pic">
-                <div class="message-content">
-                    <span class="message-user">${data.user}</span>
-                    <span class="message-text">${data.text}</span>
-                </div>
-            `;
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            
+            // 시스템 메시지 UI
+            if (data.type === "system") {
+                messageDiv.classList.add('system');
+                messageDiv.innerHTML = `<span class="system-text">${data.text}</span>`;
+            } 
+            // 일반 메시지 UI
+            else {
+                if (data.user === userName) messageDiv.classList.add('my-message');
+                messageDiv.innerHTML = `
+                    <img src="${data.profilePic || defaultProfile}" class="chat-profile-pic">
+                    <div class="message-content">
+                        <span class="message-user">${data.user}</span>
+                        <span class="message-text">${data.text}</span>
+                    </div>
+                `;
+            }
+            
+            // 기존 채팅을 지우지 않고 새 메시지만 추가
+            chatMessages.appendChild(messageDiv);
         }
-        
-        chatMessages.appendChild(messageDiv);
     });
 
     // 새 메시지 알림음 재생 (첫 로딩 무시, 내가 보낸 메시지 무시)
     if (!isInitialLoad && snapshot.docChanges().some(change => change.type === "added")) {
         const addedDocs = snapshot.docChanges().filter(change => change.type === "added");
-        const latestDoc = addedDocs[addedDocs.length - 1].doc.data();
-        
-        if (latestDoc.user !== userName && latestDoc.type === "normal") {
-            // 브라우저 정책상 클릭 전에는 재생 안 될 수 있음
-            alertSound.play().catch(() => console.log("사운드 재생을 위해 화면 클릭 필요"));
+        if (addedDocs.length > 0) {
+            const latestDoc = addedDocs[addedDocs.length - 1].doc.data();
+            
+            if (latestDoc.user !== userName && latestDoc.type === "normal") {
+                // 브라우저 정책상 클릭 전에는 재생 안 될 수 있음
+                alertSound.play().catch(() => console.log("사운드 재생을 위해 화면 클릭 필요"));
+            }
         }
     }
     
     isInitialLoad = false;
-    chatMessages.scrollTop = chatMessages.scrollHeight; // 스크롤 맨 아래로
+    chatMessages.scrollTop = chatMessages.scrollHeight; // 스크롤 맨 아래로 유지
 });
