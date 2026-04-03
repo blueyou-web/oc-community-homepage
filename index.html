@@ -26,7 +26,7 @@
             <div class="video-wrapper">
                 <!-- LCK 공식 치지직 채널. 채널 ID는 chzzk.naver.com/lck 에서 확인 후 업데이트 -->
                 <iframe id="chzzk-player"
-                    src="https://chzzk.naver.com/9381e7d6816e6d915a44a13c0195b202"
+                    src="https://chzzk.naver.com/live/ca878f4daf84e25e81a40c8e5a70f30d/embed"
                     frameborder="0"
                     allowfullscreen
                     allow="autoplay; fullscreen">
@@ -72,6 +72,32 @@
             </div>
         </div>
     </div>
+
+    <!-- 소리 버튼: 모듈과 완전히 독립 실행 -->
+    <script>
+        (function () {
+            var btn = document.getElementById('sound-toggle-btn');
+            if (!btn) return;
+
+            var isOn = localStorage.getItem('chzzk_sound') !== 'off';
+
+            function update() {
+                btn.textContent     = isOn ? '🔔' : '🔇';
+                btn.title           = isOn ? '알림음 끄기' : '알림음 켜기';
+                btn.style.opacity   = isOn ? '1' : '0.45';
+            }
+            update();
+
+            btn.addEventListener('click', function () {
+                isOn = !isOn;
+                localStorage.setItem('chzzk_sound', isOn ? 'on' : 'off');
+                update();
+            });
+
+            // app.js(모듈)에서 읽어갈 수 있도록 전역에 노출
+            window.__isSoundOn = function () { return isOn; };
+        })();
+    </script>
 
     <script type="module" src="app.js"></script>
 </body>
