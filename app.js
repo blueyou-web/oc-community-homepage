@@ -49,7 +49,38 @@ const avatarConfirmBtn  = document.getElementById('avatar-confirm-btn');
 const avatarCancelBtn   = document.getElementById('avatar-cancel-btn');
 
 // ===== 알림음 =====
-const alertSound  = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+// ===== 부드러운 알림음 (Web Audio API — 외부 파일 불필요) =====
+const playNotificationSound = () => {
+    try {
+        const ctx    = new (window.AudioContext || window.webkitAudioContext)();
+        const master = ctx.createGain();
+        master.gain.setValueAtTime(0.4, ctx.currentTime);
+        master.connect(ctx.destination);
+
+        const ding = (freq, startT, vol, decay) => {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.connect(g); g.connect(master);
+            o.type = 'sine';
+            o.frequency.setValueAtTime(freq, ctx.currentTime + startT);
+            g.gain.setValueAtTime(0, ctx.currentTime + startT);
+            g.gain.linearRampToValueAtTime(vol, ctx.currentTime + startT + 0.008);
+            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startT + decay);
+            o.start(ctx.currentTime + startT);
+            o.stop(ctx.currentTime  + startT + decay);
+            return o;
+        };
+
+        // 도 (C6)
+        ding(1047, 0.00, 0.22, 0.18);
+        ding(2093, 0.00, 0.06, 0.15);
+        // 미 (E6)
+        ding(1319, 0.12, 0.24, 0.28);
+        const last = ding(2637, 0.12, 0.07, 0.26);
+
+        last.onended = () => ctx.close();
+    } catch (e) {}
+};
 let isInitialLoad = true;
 
 // ===== 유저 정보 =====
@@ -296,7 +327,7 @@ onSnapshot(q, (snapshot) => {
         if (added.length > 0) {
             const latest = added[added.length - 1].doc.data();
             if (latest.user !== userName && latest.type === "normal")
-                alertSound.play().catch(() => {});
+                playNotificationSound();
         }
     }
     isInitialLoad = false;
