@@ -7,11 +7,11 @@ import { initializeApp }    from "https://www.gstatic.com/firebasejs/10.8.1/fire
 import {
     getFirestore, collection, addDoc,
     query, orderBy, onSnapshot,
-    getDocs, writeBatch
+    getDocs, writeBatch, doc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import {
     getDatabase,
-    ref, set, onValue,
+    ref, set, remove, onValue,
     onDisconnect
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
@@ -146,6 +146,14 @@ const updatePresence = async () => {
     await onDisconnect(presenceRef).remove();
 };
 
+// 이전 코드가 남긴 Firestore participants 잔재 청소
+const cleanupOldFirestorePresence = async () => {
+    try {
+        const oldRef = doc(db, "participants", userId);
+        await deleteDoc(oldRef);
+    } catch (_) { /* 없으면 무시 */ }
+};
+
 // 참여자 목록 실시간 반영
 onValue(allParticipants, (snapshot) => {
     const data = snapshot.val();
@@ -196,7 +204,13 @@ const sendSystemMessage = async (text) => {
 
 // ===== 입장 =====
 window.addEventListener('load', async () => {
+    // 1) 혹시 남은 stale RTDB 노드 제거 후 깨끗하게 재등록
+    await remove(presenceRef);
     await updatePresence();
+
+    // 2) 구버전 Firestore participants 잔재 청소
+    await cleanupOldFirestorePresence();
+
     await sendSystemMessage(`${userName}님이 입장하셨습니다.`);
 });
 
