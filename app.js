@@ -85,19 +85,6 @@ const playNotificationSound = () => {
 let isInitialLoad = true;
 let isSoundOn     = localStorage.getItem('chzzk_sound') !== 'off';
 
-const updateSoundBtn = () => {
-    soundToggleBtn.textContent = isSoundOn ? '🔔' : '🔇';
-    soundToggleBtn.title       = isSoundOn ? '알림음 끄기' : '알림음 켜기';
-    soundToggleBtn.style.color = isSoundOn ? '' : 'var(--netflix-red)';
-};
-updateSoundBtn();
-
-soundToggleBtn.addEventListener('click', () => {
-    isSoundOn = !isSoundOn;
-    localStorage.setItem('chzzk_sound', isSoundOn ? 'on' : 'off');
-    updateSoundBtn();
-});
-
 // ===== 유저 정보 =====
 const defaultProfile = "https://api.dicebear.com/8.x/bottts/svg?seed=default&backgroundColor=333333";
 const userId = localStorage.getItem('chzzk_uid') || Math.random().toString(36).substring(2, 10);
@@ -250,7 +237,22 @@ const sendSystemMessage = async (text) => {
 
 // ===== 입장 =====
 window.addEventListener('load', async () => {
-    // 1) 혹시 남은 stale RTDB 노드 제거 후 깨끗하게 재등록
+    // 소리 버튼 초기화 (DOM이 완전히 준비된 후 안전하게 실행)
+    if (soundToggleBtn) {
+        const updateSoundBtn = () => {
+            soundToggleBtn.textContent = isSoundOn ? '🔔' : '🔇';
+            soundToggleBtn.title       = isSoundOn ? '알림음 끄기' : '알림음 켜기';
+            soundToggleBtn.style.opacity = isSoundOn ? '1' : '0.45';
+        };
+        updateSoundBtn();
+        soundToggleBtn.addEventListener('click', () => {
+            isSoundOn = !isSoundOn;
+            localStorage.setItem('chzzk_sound', isSoundOn ? 'on' : 'off');
+            updateSoundBtn();
+        });
+    }
+
+    // 1) stale RTDB 노드 제거 후 재등록
     await remove(presenceRef);
     await updatePresence();
 
