@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chzzk Together (Netflix Style)</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="netflix-header">
+        <div class="logo">CHZZK TOGETHER</div>
+        <div class="user-info">
+            <img id="profile-img" src="" alt="프로필" title="클릭해서 프로필 변경">
+            <span id="user-display-name">Guest</span>
+            <button id="change-name-btn" class="netflix-btn-small">이름 변경</button>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <section class="video-section">
+            <div class="video-wrapper">
+                <iframe 
+                    id="chzzk-player"
+                    src="https://chzzk.naver.com/live/채널_ID_입력/embed" 
+                    frameborder="0" 
+                    allowfullscreen>
+                </iframe>
+            </div>
+        </section>
+
+        <aside class="chat-section">
+            <div class="chat-header">실시간 대화</div>
+            <div id="chat-messages" class="chat-messages">
+                </div>
+            <form id="chat-form" class="chat-input-area">
+                <input type="text" id="message-input" placeholder="친구에게 메시지 보내기..." autocomplete="off" required>
+                <button type="submit" class="netflix-btn">전송</button>
+            </form>
+        </aside>
+    </main>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
