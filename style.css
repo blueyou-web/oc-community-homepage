@@ -5,34 +5,18 @@
     --netflix-red: #E50914;
     --text-white: #FFFFFF;
     --text-gray: #B3B3B3;
-    --border-color: #333;
+    --border-color: #2a2a2a;
+    --participant-bg: #1e1e1e;
+    --host-color: #f5c518;
 }
 
-/* =========================================
-   [추가됨] 예쁜 다크블랙 커스텀 스크롤바 
-   ========================================= */
-::-webkit-scrollbar {
-    width: 8px;  /* 세로 스크롤바 너비 */
-    height: 8px; /* 가로 스크롤바 높이 */
-}
-::-webkit-scrollbar-track {
-    background: var(--netflix-black); /* 스크롤바 길 배경색 */
-    border-radius: 4px;
-}
-::-webkit-scrollbar-thumb {
-    background: #333; /* 스크롤바 색상 */
-    border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-    background: #555; /* 마우스 올렸을 때 색상 */
-}
+/* 스크롤바 */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
 
-/* 기본 리셋 */
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -41,64 +25,80 @@ body {
     height: 100vh;
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* 전체 페이지 스크롤 방지 */
+    overflow: hidden;
 }
 
-/* 상단 헤더 */
+/* ===== 헤더 ===== */
 .netflix-header {
-    height: 68px;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.8) 10%, rgba(0,0,0,0));
-    background-color: var(--netflix-black);
+    height: 60px;
+    background-color: rgba(20, 20, 20, 0.98);
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 4%;
+    padding: 0 20px;
     position: fixed;
     top: 0;
     width: 100%;
     z-index: 100;
+    backdrop-filter: blur(10px);
 }
 
 .logo {
     color: var(--netflix-red);
-    font-size: 28px;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.lck-badge {
+    background: linear-gradient(135deg, #1a0a2e, #3d1068);
+    border: 1px solid #7b2cbf;
+    color: #d0aaff;
+    font-size: 0.75rem;
     font-weight: bold;
-    letter-spacing: -1px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.5px;
 }
 
 .user-info {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     color: var(--text-gray);
 }
 
 #profile-img {
-    width: 32px;
-    height: 32px;
-    border-radius: 4px;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
     cursor: pointer;
     object-fit: cover;
-    border: 1px solid transparent;
+    border: 2px solid transparent;
     transition: 0.2s ease;
 }
+#profile-img:hover { border-color: var(--netflix-red); }
 
-#profile-img:hover {
-    border-color: var(--text-white);
-}
-
-/* 메인 레이아웃 */
+/* ===== 메인 레이아웃 ===== */
 .main-container {
-    margin-top: 68px;
+    margin-top: 60px;
     flex: 1;
     display: flex;
-    flex-direction: row; /* 기본은 가로 배치 */
-    padding: 20px;
-    gap: 20px;
-    height: calc(100vh - 68px);
+    flex-direction: row;
+    padding: 16px;
+    gap: 16px;
+    height: calc(100vh - 60px);
+    overflow: hidden;
 }
 
-/* 비디오 영역 */
+/* ===== 비디오 ===== */
 .video-section {
     flex: 7;
     display: flex;
@@ -109,209 +109,460 @@ body {
 .video-wrapper {
     width: 100%;
     position: relative;
-    padding-top: 56.25%; /* 16:9 비율 강제 유지 */
-    background-color: black;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-    border-radius: 4px;
+    padding-top: 56.25%;
+    background-color: #000;
+    border-radius: 8px;
     overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
 }
 
 .video-wrapper iframe {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
 }
 
-/* 채팅 영역 */
+/* ===== 채팅 영역 ===== */
 .chat-section {
     flex: 3;
+    min-width: 280px;
+    max-width: 360px;
     background-color: var(--netflix-dark-gray);
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 8px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    min-height: 0; /* 반응형 세로 배치 시 채팅 스크롤 보장용 */
+    min-height: 0;
 }
 
-.chat-header {
-    padding: 15px;
-    background-color: #1a1a1a;
+/* ===== 참여자 패널 ===== */
+.participant-container {
     border-bottom: 1px solid var(--border-color);
-    font-weight: bold;
-    color: var(--text-white);
+    overflow: hidden;
 }
 
+.participant-toggle-btn {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--participant-bg);
+    border: none;
+    color: var(--text-white);
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+.participant-toggle-btn:hover { background: #252525; }
+
+.participant-toggle-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.live-dot {
+    width: 7px;
+    height: 7px;
+    background: #22c55e;
+    border-radius: 50%;
+    box-shadow: 0 0 6px #22c55e;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+.participant-toggle-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.user-count-badge {
+    background: var(--netflix-red);
+    color: white;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 2px 7px;
+    border-radius: 10px;
+    min-width: 22px;
+    text-align: center;
+}
+
+.toggle-arrow {
+    color: var(--text-gray);
+    font-size: 0.7rem;
+    transition: transform 0.2s;
+}
+.toggle-arrow.open { transform: rotate(180deg); }
+
+/* 참여자 목록 */
+.participant-list {
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+    background: #171717;
+    display: none; /* 기본: 접힘 */
+}
+
+.participant-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+.participant-item:hover { background: rgba(255,255,255,0.04); }
+
+.participant-item.is-me {
+    background: rgba(229, 9, 20, 0.08);
+    border: 1px solid rgba(229, 9, 20, 0.2);
+}
+
+.participant-pic {
+    width: 26px;
+    height: 26px;
+    border-radius: 5px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.participant-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+}
+
+.participant-name {
+    font-size: 0.82rem;
+    color: var(--text-white);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.host-badge {
+    background: var(--host-color);
+    color: #000;
+    font-size: 0.58rem;
+    font-weight: bold;
+    padding: 2px 5px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    letter-spacing: 0.3px;
+}
+
+.me-badge {
+    background: rgba(229, 9, 20, 0.7);
+    color: white;
+    font-size: 0.58rem;
+    font-weight: bold;
+    padding: 2px 5px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+/* ===== 채팅 메시지 ===== */
 .chat-messages {
     flex: 1;
-    padding: 15px;
+    padding: 14px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 12px;
+    min-height: 0;
 }
 
-/* 메시지 애니메이션 & 디자인 */
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(5px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
 .message {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
-    animation: fadeIn 0.3s ease forwards;
+    gap: 9px;
+    animation: fadeIn 0.25s ease forwards;
 }
 
 .message.system {
     justify-content: center;
-    margin: 5px 0;
+    margin: 2px 0;
 }
 
 .system-text {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     color: var(--text-gray);
-    background-color: rgba(255, 255, 255, 0.1);
-    padding: 4px 12px;
+    background: rgba(255,255,255,0.07);
+    padding: 3px 12px;
     border-radius: 10px;
-    letter-spacing: -0.5px;
 }
 
 .chat-profile-pic {
-    width: 30px;
-    height: 30px;
-    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
     object-fit: cover;
+    flex-shrink: 0;
 }
 
 .message-content {
     display: flex;
     flex-direction: column;
-    max-width: 80%;
+    max-width: 82%;
 }
 
 .message-user {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--text-gray);
-    margin-bottom: 4px;
+    margin-bottom: 3px;
 }
 
 .message-text {
     color: var(--text-white);
-    background-color: #333;
-    padding: 8px 12px;
-    border-radius: 4px;
+    background: #2a2a2a;
+    padding: 7px 11px;
+    border-radius: 4px 12px 12px 12px;
     word-break: break-word;
-    line-height: 1.4;
+    line-height: 1.45;
+    font-size: 0.88rem;
 }
 
-.message.my-message {
-    flex-direction: row-reverse;
-}
-
-.message.my-message .message-content {
-    align-items: flex-end;
-}
-
-.message.my-message .message-user {
-    color: var(--netflix-red);
-    font-weight: bold;
-}
-
+.message.my-message { flex-direction: row-reverse; }
+.message.my-message .message-content { align-items: flex-end; }
+.message.my-message .message-user { color: #ff6b6b; font-weight: bold; }
 .message.my-message .message-text {
-    background-color: var(--netflix-red);
+    background: var(--netflix-red);
+    border-radius: 12px 4px 12px 12px;
 }
 
+/* ===== 채팅 입력 ===== */
 .chat-input-area {
-    padding: 15px;
+    padding: 12px;
     border-top: 1px solid var(--border-color);
     display: flex;
-    gap: 10px;
+    gap: 8px;
     background-color: var(--netflix-dark-gray);
 }
 
 #message-input {
     flex: 1;
-    padding: 10px;
-    background-color: #333;
+    padding: 10px 12px;
+    background: #252525;
     border: 1px solid transparent;
     color: var(--text-white);
-    border-radius: 2px;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    transition: border-color 0.2s;
 }
-
-#message-input:focus {
-    outline: none;
-    border-color: var(--text-gray);
-}
+#message-input::placeholder { color: #555; }
+#message-input:focus { outline: none; border-color: #444; }
 
 .netflix-btn {
-    background-color: var(--netflix-red);
+    background: var(--netflix-red);
     color: white;
     border: none;
-    padding: 10px 20px;
+    padding: 10px 18px;
     font-weight: bold;
     cursor: pointer;
-    border-radius: 2px;
-    transition: 0.2s;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    transition: background 0.2s, transform 0.1s;
 }
-
-.netflix-btn:hover {
-    background-color: #c40812;
-}
+.netflix-btn:hover { background: #c40812; }
+.netflix-btn:active { transform: scale(0.97); }
 
 .netflix-btn-small {
     background: none;
-    border: 1px solid var(--text-gray);
+    border: 1px solid #3a3a3a;
     color: var(--text-gray);
     padding: 5px 10px;
     cursor: pointer;
-    font-size: 0.8rem;
-    border-radius: 2px;
+    font-size: 0.75rem;
+    border-radius: 4px;
     transition: 0.2s;
+    white-space: nowrap;
 }
+.netflix-btn-small:hover { color: var(--text-white); border-color: #666; }
+.netflix-btn-small.danger { border-color: rgba(229,9,20,0.4); color: rgba(229,9,20,0.8); }
+.netflix-btn-small.danger:hover { border-color: var(--netflix-red); color: var(--netflix-red); }
 
-.netflix-btn-small:hover {
-    color: var(--text-white);
-    border-color: var(--text-white);
-}
-
-/* =========================================
-   [추가됨] 반응형(Responsive) 웹 디자인 
-   창 크기가 900px 이하로 좁아질 때 적용됨
-   ========================================= */
+/* ===== 반응형 ===== */
 @media screen and (max-width: 900px) {
     .main-container {
-        flex-direction: column; /* 세로 배치로 변경 (영상 위, 채팅 아래) */
-        padding: 10px; /* 모바일/작은 창에 맞춰 여백 줄임 */
+        flex-direction: column;
+        padding: 8px;
+        gap: 8px;
+    }
+    .video-section { flex: none; width: 100%; }
+    .chat-section {
+        flex: 1;
+        width: 100%;
+        max-width: 100%;
+        min-height: 320px;
+    }
+    .logo { font-size: 18px; }
+    .lck-badge { display: none; }
+    .user-info { gap: 5px; }
+    .netflix-btn-small { font-size: 0.68rem; padding: 4px 7px; }
+    #profile-img { width: 24px; height: 24px; }
+}
+
+/* ===== 아바타 픽커 모달 ===== */
+.avatar-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    animation: overlayIn 0.2s ease;
+    backdrop-filter: blur(4px);
+}
+
+@keyframes overlayIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.avatar-modal-card {
+    background: #141414;
+    border: 1px solid #2a2a2a;
+    border-radius: 6px;
+    padding: 48px 56px;
+    width: min(90vw, 580px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    animation: cardIn 0.25s ease;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+}
+
+@keyframes cardIn {
+    from { opacity: 0; transform: scale(0.94) translateY(12px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.avatar-modal-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-white);
+    letter-spacing: -0.5px;
+}
+
+.avatar-modal-subtitle {
+    font-size: 1rem;
+    color: var(--text-gray);
+    margin-top: -20px;
+}
+
+.avatar-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    width: 100%;
+}
+
+.avatar-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    group: true;
+}
+
+.avatar-option img {
+    width: 100px;
+    height: 100px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 3px solid transparent;
+    transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.avatar-option:hover img {
+    border-color: var(--text-white);
+    transform: scale(1.06);
+}
+
+.avatar-option.selected img {
+    border-color: var(--text-white);
+    box-shadow: 0 0 0 2px var(--text-white);
+    transform: scale(1.06);
+}
+
+.avatar-option .avatar-check {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    color: transparent;
+    background: transparent;
+    transition: 0.15s;
+}
+
+.avatar-option.selected .avatar-check {
+    border-color: var(--text-white);
+    background: var(--text-white);
+    color: #000;
+}
+
+.avatar-modal-actions {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    justify-content: center;
+}
+
+.avatar-cancel-btn {
+    background: #333;
+    color: var(--text-white);
+    border: none;
+    padding: 12px 32px;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+.avatar-cancel-btn:hover { background: #444; }
+
+#avatar-confirm-btn {
+    padding: 12px 32px;
+    font-size: 0.9rem;
+    opacity: 0.4;
+    transition: opacity 0.2s, background 0.2s, transform 0.1s;
+}
+#avatar-confirm-btn:not(:disabled) { opacity: 1; }
+#avatar-confirm-btn:disabled { cursor: not-allowed; }
+
+@media screen and (max-width: 600px) {
+    .avatar-modal-card {
+        padding: 32px 20px;
+    }
+    .avatar-modal-title { font-size: 1.5rem; }
+    .avatar-grid {
+        grid-template-columns: repeat(4, 1fr);
         gap: 10px;
     }
-
-    .video-section {
-        flex: none;
-        width: 100%; /* 영상 가로 폭 100% 꽉 채우기 */
-    }
-
-    .chat-section {
-        flex: 1; /* 남은 화면 높이를 채팅창이 모두 차지함 */
-        width: 100%;
-    }
-
-    /* 좁은 화면에서 상단 헤더 글자 크기 및 간격 조절 */
-    .logo {
-        font-size: 20px; 
-    }
-    .user-info {
-        gap: 5px;
-    }
-    .netflix-btn-small {
-        font-size: 0.7rem;
-        padding: 4px 6px;
-    }
-    #profile-img {
-        width: 24px;
-        height: 24px;
-    }
+    .avatar-option img { width: 68px; height: 68px; }
 }
