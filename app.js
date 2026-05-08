@@ -203,11 +203,7 @@ window.addEventListener('load', async () => {
         await addDoc(collection(db, "shared_chat"), { type: "system", text, timestamp: Date.now() });
     };
 
-    // ===== 입장 =====
-    await remove(presenceRef);
-    await updatePresence();
-    await cleanupOldFirestorePresence();
-    await sendSystemMessage(`${userName}님이 입장하셨습니다.`);
+    // ===== 이벤트 리스너 먼저 등록 (Firebase 상태와 무관하게 동작 보장) =====
 
     // ===== 이름 변경 =====
     changeNameBtn.addEventListener('click', async () => {
@@ -217,8 +213,10 @@ window.addEventListener('load', async () => {
             userName = newName.trim();
             localStorage.setItem('chzzk_name', userName);
             displayNameSpan.textContent = userName;
-            await updatePresence();
-            await sendSystemMessage(`'${oldName}'님이 '${userName}'(으)로 이름을 변경했습니다.`);
+            try {
+                await updatePresence();
+                await sendSystemMessage(`'${oldName}'님이 '${userName}'(으)로 이름을 변경했습니다.`);
+            } catch (err) { console.error("이름 변경 알림 에러:", err); }
         }
     });
 
@@ -255,6 +253,16 @@ window.addEventListener('load', async () => {
             messageInput.focus();
         } catch (err) { console.error("전송 에러:", err); }
     });
+
+    // ===== 입장 (Firebase 연결 — 실패해도 UI는 정상 동작) =====
+    try {
+        await remove(presenceRef);
+        await updatePresence();
+        await cleanupOldFirestorePresence();
+        await sendSystemMessage(`${userName}님이 입장하셨습니다.`);
+    } catch (err) {
+        console.error("입장 처리 에러:", err);
+    }
 
     // ===== 메시지 수신 =====
     const q = query(collection(db, "shared_chat"), orderBy("timestamp", "asc"));
