@@ -37,20 +37,22 @@ let myJoinedAt = null;
 let isInitialLoad = true;
 
 // ===== LCK 팀 데이터 =====
-const makeLckSvg = (text, color) => {
-    const fs = text.length > 2 ? 24 : 32;
-    return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='10' fill='%23${color}'/%3E%3Ctext x='50' y='55' text-anchor='middle' dominant-baseline='middle' font-family='Arial Black,Arial,sans-serif' font-weight='900' font-size='${fs}' fill='white'%3E${text}%3C/text%3E%3C/svg%3E`;
+const makeLckSvg = (text, color, textColor = 'white') => {
+    const fs = text.length > 3 ? 20 : text.length > 2 ? 24 : 32;
+    return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='10' fill='%23${color}'/%3E%3Ctext x='50' y='55' text-anchor='middle' dominant-baseline='middle' font-family='Arial Black,Arial,sans-serif' font-weight='900' font-size='${fs}' fill='${textColor}'%3E${text}%3C/text%3E%3C/svg%3E`;
 };
 
 const LCK_TEAMS = [
-    { name: 'T1',    color: '#E2012D', logo: makeLckSvg('T1',   'E2012D') },
-    { name: 'Gen.G', color: '#AA8B2C', logo: makeLckSvg('GEN',  'AA8B2C') },
-    { name: 'HLE',   color: '#FF6B00', logo: makeLckSvg('HLE',  'FF6B00') },
-    { name: 'DRX',   color: '#0A7DCF', logo: makeLckSvg('DRX',  '0A7DCF') },
-    { name: 'DK',    color: '#5B2C8E', logo: makeLckSvg('DK',   '5B2C8E') },
-    { name: 'KT',    color: '#CC0000', logo: makeLckSvg('KT',   'CC0000') },
-    { name: 'FearX', color: '#DC2D72', logo: makeLckSvg('FX',   'DC2D72') },
-    { name: 'BRO',   color: '#00A651', logo: makeLckSvg('BRO',  '00A651') },
+    { name: 'T1',                 color: '#E2012D', logo: makeLckSvg('T1',   'E2012D') },
+    { name: 'Gen.G',              color: '#AA8B2C', logo: makeLckSvg('GEN',  'AA8B2C') },
+    { name: 'Hanwha Life',        color: '#FF6B00', logo: makeLckSvg('HLE',  'FF6B00') },
+    { name: 'Dplus KIA',          color: '#5B2C8E', logo: makeLckSvg('DK',   '5B2C8E') },
+    { name: 'BNK FEARX',          color: '#F5C518', logo: makeLckSvg('FX',   'F5C518', '%23000') },
+    { name: 'KIWOOM DRX',         color: '#0A7DCF', logo: makeLckSvg('DRX',  '0A7DCF') },
+    { name: 'kt Rolster',         color: '#CC0000', logo: makeLckSvg('KT',   'CC0000') },
+    { name: 'DN SOOPers',         color: '#0B8457', logo: makeLckSvg('DN',   '0B8457') },
+    { name: 'Nongshim RedForce',  color: '#D32F2F', logo: makeLckSvg('NS',   'D32F2F') },
+    { name: 'HANJIN BRION',       color: '#1B5E20', logo: makeLckSvg('BRO',  '1B5E20') },
 ];
 
 // ===== 리액션 이모지 =====
@@ -232,15 +234,24 @@ window.addEventListener('load', async () => {
         try { await updatePresence(); } catch (_) {}
     });
 
-    // ===== Realtime DB 참여자 =====
+    // ===== Realtime DB 참여자 (연결 감시 패턴) =====
     const presenceRef     = ref(rtdb, `participants/${userId}`);
     const allParticipants = ref(rtdb, 'participants');
+    const connectedRef    = ref(rtdb, '.info/connected');
+
+    if (!myJoinedAt) myJoinedAt = Date.now();
 
     const updatePresence = async () => {
-        if (!myJoinedAt) myJoinedAt = Date.now();
-        await set(presenceRef, { name: userName, pic: userPic, joinedAt: myJoinedAt });
+        // ⚠️ onDisconnect를 set보다 먼저 등록해야 race condition 방지
         await onDisconnect(presenceRef).remove();
+        await set(presenceRef, { name: userName, pic: userPic, joinedAt: myJoinedAt });
     };
+
+    // ⭐ 핵심: .info/connected를 감시해서 연결/재연결마다 presence 자동 재등록
+    onValue(connectedRef, (snap) => {
+        if (snap.val() !== true) return;
+        updatePresence().catch(err => console.error("Presence 재등록 에러:", err));
+    });
 
     const cleanupOldFirestorePresence = async () => {
         try { await deleteDoc(doc(db, "participants", userId)); } catch (_) {}
@@ -501,10 +512,8 @@ window.addEventListener('load', async () => {
         } catch (err) { console.error("전송 에러:", err); }
     });
 
-    // ===== 입장 =====
+    // ===== 입장 (presence는 .info/connected 리스너가 자동 처리) =====
     try {
-        await remove(presenceRef);
-        await updatePresence();
         await cleanupOldFirestorePresence();
         await sendSystemMessage(`${userName}님이 입장하셨습니다.`);
     } catch (err) { console.error("입장 에러:", err); }
