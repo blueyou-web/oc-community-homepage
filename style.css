@@ -391,7 +391,7 @@ body {
     position: absolute; bottom: 100%; left: 0; margin-bottom: 4px;
     background: var(--bg-secondary); border: 1px solid var(--border-color);
     border-radius: 8px; padding: 6px;
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
     box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
     animation: fadeIn 0.15s ease; z-index: 20;
 }
@@ -437,6 +437,11 @@ body {
     display: grid; grid-template-columns: repeat(4, 1fr);
     gap: 14px; width: 100%;
 }
+#avatar-grid-lck {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+}
+#avatar-grid-lck .avatar-option img { width: 72px; height: 72px; }
 .avatar-option {
     display: flex; flex-direction: column; align-items: center;
     gap: 6px; cursor: pointer;
@@ -491,4 +496,5 @@ body {
     .avatar-modal-title { font-size: 1.5rem; }
     .avatar-grid { gap: 8px; }
     .avatar-option img { width: 60px; height: 60px; }
+    #avatar-grid-lck .avatar-option img { width: 52px; height: 52px; }
 }
