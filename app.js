@@ -234,7 +234,7 @@ window.addEventListener('load', async () => {
         try { await updatePresence(); } catch (_) {}
     });
 
-    // ===== Realtime DB 참여자 (연결 감시 패턴) =====
+    // ===== Realtime DB 참여자 =====
     const presenceRef     = ref(rtdb, `participants/${userId}`);
     const allParticipants = ref(rtdb, 'participants');
     const connectedRef    = ref(rtdb, '.info/connected');
@@ -242,15 +242,32 @@ window.addEventListener('load', async () => {
     if (!myJoinedAt) myJoinedAt = Date.now();
 
     const updatePresence = async () => {
-        // ⚠️ onDisconnect를 set보다 먼저 등록해야 race condition 방지
         await onDisconnect(presenceRef).remove();
         await set(presenceRef, { name: userName, pic: userPic, joinedAt: myJoinedAt });
     };
 
-    // ⭐ 핵심: .info/connected를 감시해서 연결/재연결마다 presence 자동 재등록
+    // .info/connected 감시: 재연결 시 자동 재등록
     onValue(connectedRef, (snap) => {
         if (snap.val() !== true) return;
-        updatePresence().catch(err => console.error("Presence 재등록 에러:", err));
+        updatePresence().catch(err => {
+            console.error("Presence 등록 실패:", err);
+            if (String(err).includes('PERMISSION_DENIED')) {
+                console.error("⚠️ Firebase Realtime Database Rules에서 participants 경로의 read/write를 허용해주세요.");
+            }
+        });
+    });
+
+    // 직접 호출도 병행 (최초 입장 보장)
+    try {
+        await updatePresence();
+    } catch (err) {
+        console.error("최초 Presence 등록 실패:", err);
+    }
+
+    // 탭 닫을 때 정리
+    window.addEventListener('beforeunload', () => {
+        // navigator.sendBeacon으로 즉시 삭제 시도 (onDisconnect 백업)
+        try { remove(presenceRef); } catch (_) {}
     });
 
     const cleanupOldFirestorePresence = async () => {
@@ -278,6 +295,16 @@ window.addEventListener('load', async () => {
             participantList.appendChild(item);
         });
         userCountSpan.textContent = sorted.length;
+    }, (err) => {
+        // ⚠️ RTDB 읽기 권한 에러 시 사용자에게 표시
+        console.error("참여자 목록 읽기 실패:", err);
+        userCountSpan.textContent = '!';
+        participantList.innerHTML = `
+            <div style="padding:12px;font-size:0.78rem;color:#ff6b6b;text-align:center;line-height:1.5;">
+                ⚠️ Firebase Realtime Database 권한 오류<br>
+                <span style="color:var(--text-gray);">RTDB Rules에서 participants 경로의<br>read/write를 허용해주세요.</span>
+            </div>`;
+        participantList.style.display = 'flex';
     });
 
     let isPanelOpen = false;
