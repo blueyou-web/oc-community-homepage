@@ -498,3 +498,28 @@ body {
     .avatar-option img { width: 60px; height: 60px; }
     #avatar-grid-lck .avatar-option img { width: 52px; height: 52px; }
 }
+/* ===== 귓속말 스타일 ===== */
+.message.whisper-message .message-text {
+    background: #4a154b;
+    border: 1px dashed #b845bd;
+    color: #ffd6ff;
+}
+.whisper-tag {
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: #e28bf0;
+    margin-bottom: 2px;
+}
+.whisper-badge {
+    cursor: pointer;
+    font-size: 0.72rem;
+    color: var(--text-gray);
+    margin-left: auto;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--bg-hover);
+}
+.whisper-badge:hover {
+    color: #fff;
+    background: #6a1b9a;
+}
