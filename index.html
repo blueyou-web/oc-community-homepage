@@ -10,6 +10,7 @@
     <header class="netflix-header">
         <div class="logo">CHZZK TOGETHER</div>
         <div class="header-right">
+            <span id="room-name-label" class="room-name-label" style="display:none;"></span>
             <div class="lck-badge">🏆 LCK LIVE</div>
             <div class="user-info">
                 <img id="profile-img" src="" alt="프로필" title="클릭해서 프로필 변경">
@@ -17,12 +18,31 @@
                 <button id="theme-toggle-btn" class="netflix-btn-small" title="테마 전환">🌙</button>
                 <button id="change-name-btn" class="netflix-btn-small">이름 변경</button>
                 <button id="sound-toggle-btn" class="netflix-btn-small" title="알림음 켜기/끄기">🔔</button>
-                <button id="clear-chat-btn" class="netflix-btn-small danger">채팅 지우기</button>
+                <button id="clear-chat-btn" class="netflix-btn-small danger" style="display:none;">채팅 지우기</button>
+                <button id="leave-room-btn" class="netflix-btn-small danger" style="display:none;">방 나가기</button>
             </div>
         </div>
     </header>
 
-    <main class="main-container">
+    <!-- 방 목록(로비) 화면 -->
+    <section id="lobby-screen" class="lobby-screen">
+        <div class="lobby-inner">
+            <div class="lobby-hero">
+                <img src="https://i.imgur.com/IdPnlIv.png" alt="LCK" class="lobby-hero-logo" id="lck-logo-img">
+                <div class="lobby-hero-fallback" id="lck-logo-fallback" style="display:none;">🏆 LCK</div>
+            </div>
+            <div class="lobby-title-row">
+                <h1 class="lobby-title">같이보기 방</h1>
+                <button id="create-room-btn" class="netflix-btn">+ 방 만들기</button>
+            </div>
+            <div id="room-list" class="room-list">
+                <div class="room-list-empty">방을 불러오는 중...</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 방 안 화면 (영상 + 채팅) -->
+    <main id="app-main" class="main-container" style="display:none;">
         <section class="video-section">
             <div class="video-wrapper">
                 <iframe id="chzzk-player"
@@ -64,6 +84,41 @@
             </form>
         </aside>
     </main>
+
+    <!-- 방 만들기 모달 -->
+    <div id="room-create-modal" class="poll-modal-overlay" style="display:none;">
+        <div class="poll-modal-card">
+            <h3>🎬 방 만들기</h3>
+            <input id="room-name-input" type="text" placeholder="방 이름 (예: T1 vs Gen.G 같이봐요)" maxlength="40">
+            <div class="room-visibility-row">
+                <label class="room-radio-label">
+                    <input type="radio" name="room-visibility" id="room-public-radio" value="public" checked>
+                    🌐 공개방
+                </label>
+                <label class="room-radio-label">
+                    <input type="radio" name="room-visibility" id="room-private-radio" value="private">
+                    🔒 비공개방
+                </label>
+            </div>
+            <input id="room-password-input" type="password" placeholder="비밀번호" maxlength="30" style="display:none;">
+            <div class="poll-modal-actions">
+                <button class="avatar-cancel-btn" id="room-create-cancel">취소</button>
+                <button class="netflix-btn" id="room-create-submit">만들기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 비공개방 비밀번호 입력 모달 -->
+    <div id="room-password-modal" class="poll-modal-overlay" style="display:none;">
+        <div class="poll-modal-card">
+            <h3>🔒 비밀번호 입력</h3>
+            <input id="room-password-prompt-input" type="password" placeholder="비밀번호를 입력하세요" maxlength="30">
+            <div class="poll-modal-actions">
+                <button class="avatar-cancel-btn" id="room-password-cancel">취소</button>
+                <button class="netflix-btn" id="room-password-submit">입장</button>
+            </div>
+        </div>
+    </div>
 
     <!-- 아바타 픽커 모달 -->
     <div id="avatar-modal" class="avatar-modal-overlay" style="display:none;">
@@ -125,6 +180,19 @@
                 document.documentElement.setAttribute('data-theme', saved);
                 localStorage.setItem('chzzk_theme', saved);
                 update();
+            });
+        })();
+    </script>
+
+    <!-- 로고 이미지가 아직 없으면 이모지로 대체 -->
+    <script>
+        (function () {
+            var img = document.getElementById('lck-logo-img');
+            var fallback = document.getElementById('lck-logo-fallback');
+            if (!img || !fallback) return;
+            img.addEventListener('error', function () {
+                img.style.display = 'none';
+                fallback.style.display = 'flex';
             });
         })();
     </script>
