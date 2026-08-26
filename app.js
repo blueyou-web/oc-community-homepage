@@ -277,8 +277,11 @@ window.addEventListener('load', async () => {
     onValue(allParticipants, (snapshot) => {
         const data = snapshot.val();
         participantList.innerHTML = '';
-        if (!data) { userCountSpan.textContent = '0'; amIHost = false; return; }
+        if (!data) { userCountSpan.textContent = '0'; amIHost = false; participantsCache = []; return; }
         const sorted = Object.entries(data).sort(([,a],[,b]) => a.joinedAt - b.joinedAt);
+        participantsCache = sorted
+            .filter(([uid]) => uid !== userId)
+            .map(([uid, p]) => ({ uid, name: p.name, pic: p.pic }));
         sorted.forEach(([uid, p], i) => {
             const isHost = (i === 0), isMe = (uid === userId);
             if (isMe) amIHost = isHost;
@@ -317,6 +320,7 @@ window.addEventListener('load', async () => {
         participantList.style.display = 'flex';
     });
 
+    let participantsCache = [];
     let isPanelOpen = false;
     participantToggle.addEventListener('click', () => {
         isPanelOpen = !isPanelOpen;
@@ -357,6 +361,15 @@ window.addEventListener('load', async () => {
 
     // 리액션 클릭 이벤트 위임
     chatMessages.addEventListener('click', (e) => {
+        const replyBtn = e.target.closest('.reply-trigger');
+        if (replyBtn) {
+            const target = replyBtn.closest('.message')?.dataset.replyTarget;
+            if (target) {
+                messageInput.value = `/w ${target} `;
+                messageInput.focus();
+            }
+            return;
+        }
         const chip = e.target.closest('.reaction-chip');
         if (chip) {
             toggleReaction(chip.dataset.doc, chip.dataset.emoji);
@@ -528,6 +541,84 @@ window.addEventListener('load', async () => {
         } catch (err) { alert("오류: Firebase Rules 설정을 확인해주세요."); }
     });
 
+    // ===== 귓속말 자동완성 (/w 또는 /귓 뒤에 이름 입력 시 드롭다운) =====
+    const whisperBox = document.createElement('div');
+    whisperBox.className = 'whisper-suggestions';
+    whisperBox.style.display = 'none';
+    chatForm.appendChild(whisperBox);
+
+    let whisperMatches = [];
+    let whisperActiveIndex = -1;
+
+    const closeWhisperSuggestions = () => {
+        whisperBox.style.display = 'none';
+        whisperBox.innerHTML = '';
+        whisperMatches = [];
+        whisperActiveIndex = -1;
+    };
+
+    const highlightWhisperActive = () => {
+        whisperBox.querySelectorAll('.whisper-suggestion-item').forEach((el, i) => {
+            el.classList.toggle('active', i === whisperActiveIndex);
+        });
+    };
+
+    const renderWhisperSuggestions = (partial) => {
+        const lower = partial.toLowerCase();
+        whisperMatches = participantsCache.filter(p => p.name.toLowerCase().includes(lower));
+        if (whisperMatches.length === 0) { closeWhisperSuggestions(); return; }
+        whisperActiveIndex = 0;
+        whisperBox.innerHTML = whisperMatches.map((p, i) => `
+            <div class="whisper-suggestion-item${i === 0 ? ' active' : ''}" data-idx="${i}">
+                <img src="${p.pic || defaultProfile}" onerror="this.src='${defaultProfile}'">
+                <span>${escapeHtml(p.name)}</span>
+            </div>`).join('') +
+            `<div class="whisper-suggestion-hint">↑↓ 이동 · Enter/Tab 선택 · Esc 닫기</div>`;
+        whisperBox.style.display = 'block';
+    };
+
+    const applyWhisperSuggestion = (idx) => {
+        const p = whisperMatches[idx];
+        if (!p) return;
+        messageInput.value = `/w ${p.name} `;
+        closeWhisperSuggestions();
+        messageInput.focus();
+    };
+
+    whisperBox.addEventListener('click', (e) => {
+        const item = e.target.closest('.whisper-suggestion-item');
+        if (item) applyWhisperSuggestion(Number(item.dataset.idx));
+    });
+
+    messageInput.addEventListener('input', () => {
+        // "/w " 또는 "/귓 " 뒤에 아직 완성되지 않은 닉네임을 입력 중일 때만 드롭다운 표시
+        const typing = messageInput.value.match(/^\/(?:w|귓)\s+([^\s]*)$/i);
+        if (typing) renderWhisperSuggestions(typing[1]);
+        else closeWhisperSuggestions();
+    });
+
+    messageInput.addEventListener('keydown', (e) => {
+        if (whisperBox.style.display === 'none' || whisperMatches.length === 0) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            whisperActiveIndex = (whisperActiveIndex + 1) % whisperMatches.length;
+            highlightWhisperActive();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            whisperActiveIndex = (whisperActiveIndex - 1 + whisperMatches.length) % whisperMatches.length;
+            highlightWhisperActive();
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            applyWhisperSuggestion(whisperActiveIndex);
+        } else if (e.key === 'Escape') {
+            closeWhisperSuggestions();
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!chatForm.contains(e.target)) closeWhisperSuggestions();
+    });
+
     // ===== 메시지 전송 로직 =====
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -617,7 +708,9 @@ window.addEventListener('load', async () => {
                     </span>
                     ${buildReactionBar(data.reactions, docId)}
                 </div>
-                <span class="reaction-trigger">😊+</span>`;
+                <span class="reaction-trigger">😊+</span>
+                ${!isMe ? '<span class="reply-trigger" title="귓속말로 답장">↩ 귓속말</span>' : ''}`;
+            if (!isMe) div.dataset.replyTarget = data.user;
             return div;
         }
 
@@ -638,7 +731,9 @@ window.addEventListener('load', async () => {
                     <span class="message-text">${escapeHtml(data.text)}</span>
                     ${buildReactionBar(data.reactions, docId)}
                 </div>
-                <span class="reaction-trigger">😊+</span>`;
+                <span class="reaction-trigger">😊+</span>
+                ${!isMe ? '<span class="reply-trigger" title="귓속말로 답장">↩ 답장</span>' : ''}`;
+            if (!isMe) div.dataset.replyTarget = data.user;
             return div;
         }
 
@@ -653,7 +748,9 @@ window.addEventListener('load', async () => {
                 <span class="message-text">${escapeHtml(data.text)}</span>
                 ${buildReactionBar(data.reactions, docId)}
             </div>
-            <span class="reaction-trigger">😊+</span>`;
+            <span class="reaction-trigger">😊+</span>
+            ${!isMe ? '<span class="reply-trigger" title="귓속말로 답장">↩ 답장</span>' : ''}`;
+        if (!isMe) div.dataset.replyTarget = data.user;
         return div;
     };
 
