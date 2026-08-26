@@ -5,7 +5,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
 import {
     getFirestore, collection, addDoc, updateDoc, arrayUnion, arrayRemove,
-    query, orderBy, onSnapshot,
+    query, orderBy, limitToLast, onSnapshot,
     getDocs, writeBatch, doc, deleteDoc
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import {
@@ -86,9 +86,11 @@ const playNotificationSound = () => {
 };
 
 // ===== 컨페티 애니메이션 =====
+let confettiRafId = null; // 동시에 여러 애니메이션 루프가 겹쳐 돌면서 렉을 유발하던 것 방지
 const fireConfetti = (teamColor) => {
     const canvas = document.getElementById('confetti-canvas');
     if (!canvas) return;
+    if (confettiRafId !== null) cancelAnimationFrame(confettiRafId);
     const ctx = canvas.getContext('2d');
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -121,8 +123,12 @@ const fireConfetti = (teamColor) => {
             ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.55);
             ctx.restore();
         });
-        if (alive) requestAnimationFrame(animate);
-        else ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (alive) {
+            confettiRafId = requestAnimationFrame(animate);
+        } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            confettiRafId = null;
+        }
     };
     animate();
 };
@@ -516,12 +522,23 @@ window.addEventListener('load', async () => {
         if (!confirm("정말 모든 채팅 내역을 삭제하시겠습니까?")) return;
         try {
             const snap = await getDocs(collection(db, "shared_chat"));
-            const batch = writeBatch(db);
-            snap.forEach((d) => batch.delete(d.ref));
-            await batch.commit();
+            const docs = snap.docs;
+
+            // Firestore batch는 한 번에 최대 500개 작업만 허용.
+            // 채팅이 500개를 넘으면 기존 코드는 여기서 조용히 실패했음 -> 500개씩 나눠서 커밋.
+            const CHUNK = 500;
+            for (let i = 0; i < docs.length; i += CHUNK) {
+                const batch = writeBatch(db);
+                docs.slice(i, i + CHUNK).forEach((d) => batch.delete(d.ref));
+                await batch.commit();
+            }
+
             chatMessages.innerHTML = '';
-            alert("채팅이 청소되었습니다!");
-        } catch (err) { alert("오류: Firebase Rules 설정을 확인해주세요."); }
+            alert(`채팅이 청소되었습니다! (${docs.length}개 삭제)`);
+        } catch (err) {
+            console.error("채팅 삭제 에러:", err);
+            alert(`채팅 삭제 실패: ${err.code || err.message || err}\n(콘솔에서 자세한 내용을 확인하세요)`);
+        }
     });
 
     chatForm.addEventListener('submit', async (e) => {
@@ -598,7 +615,10 @@ window.addEventListener('load', async () => {
     };
 
     // ===== 메시지 수신 =====
-    const q = query(collection(db, "shared_chat"), orderBy("timestamp", "asc"));
+    // limitToLast: 컬렉션 전체를 매번 불러오지 않고 "최근 150개"만 실시간 구독.
+    // 채팅이 쌓일수록 점점 느려지던 렉의 핵심 원인이었음.
+    const CHAT_WINDOW = 150;
+    const q = query(collection(db, "shared_chat"), orderBy("timestamp", "asc"), limitToLast(CHAT_WINDOW));
     onSnapshot(q, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
             const data  = change.doc.data();
@@ -630,6 +650,13 @@ window.addEventListener('load', async () => {
                         if (newBar) content.insertAdjacentHTML('beforeend', newBar);
                     }
                 }
+            }
+
+            // limitToLast 윈도우 밖으로 밀려난 오래된 메시지는 DOM에서도 제거
+            // (안 지우면 DOM이 계속 쌓여서 렉의 또 다른 원인이 됨)
+            if (change.type === "removed") {
+                const existing = document.getElementById(`msg-${docId}`);
+                if (existing) existing.remove();
             }
         });
 
