@@ -257,7 +257,7 @@ window.addEventListener('load', async () => {
         });
     });
 
-    // 직접 호출도 병행 (최초 입장 보장)
+    // 최초 Presence 등록
     try {
         await updatePresence();
     } catch (err) {
@@ -266,7 +266,6 @@ window.addEventListener('load', async () => {
 
     // 탭 닫을 때 정리
     window.addEventListener('beforeunload', () => {
-        // navigator.sendBeacon으로 즉시 삭제 시도 (onDisconnect 백업)
         try { remove(presenceRef); } catch (_) {}
     });
 
@@ -274,6 +273,7 @@ window.addEventListener('load', async () => {
         try { await deleteDoc(doc(db, "participants", userId)); } catch (_) {}
     };
 
+    // 참여자 목록 렌더링
     onValue(allParticipants, (snapshot) => {
         const data = snapshot.val();
         participantList.innerHTML = '';
@@ -284,6 +284,8 @@ window.addEventListener('load', async () => {
             if (isMe) amIHost = isHost;
             const item = document.createElement('div');
             item.className = 'participant-item' + (isMe ? ' is-me' : '');
+            item.style.cursor = isMe ? 'default' : 'pointer';
+            item.title = isMe ? '' : `${escapeHtml(p.name)}님에게 귓속말 보내기`;
             item.innerHTML = `
                 <img src="${p.pic || defaultProfile}" class="participant-pic"
                      onerror="this.src='${defaultProfile}'">
@@ -292,11 +294,19 @@ window.addEventListener('load', async () => {
                     ${isHost ? '<span class="host-badge">👑 방장</span>' : ''}
                     ${isMe   ? '<span class="me-badge">나</span>'        : ''}
                 </div>`;
+
+            // 참여자 클릭 시 귓속말 자동 완성 (루프 내부에서 연결)
+            if (!isMe) {
+                item.addEventListener('click', () => {
+                    messageInput.value = `/w ${p.name} `;
+                    messageInput.focus();
+                });
+            }
+
             participantList.appendChild(item);
         });
         userCountSpan.textContent = sorted.length;
     }, (err) => {
-        // ⚠️ RTDB 읽기 권한 에러 시 사용자에게 표시
         console.error("참여자 목록 읽기 실패:", err);
         userCountSpan.textContent = '!';
         participantList.innerHTML = `
@@ -336,7 +346,6 @@ window.addEventListener('load', async () => {
     const toggleReaction = async (docId, emoji) => {
         try {
             const msgRef = doc(db, "shared_chat", docId);
-            // 현재 상태를 DOM에서 확인 (mine 클래스)
             const chip = document.querySelector(`.reaction-chip[data-doc="${docId}"][data-emoji="${emoji}"]`);
             if (chip && chip.classList.contains('mine')) {
                 await updateDoc(msgRef, { [`reactions.${emoji}`]: arrayRemove(userId) });
@@ -348,16 +357,13 @@ window.addEventListener('load', async () => {
 
     // 리액션 클릭 이벤트 위임
     chatMessages.addEventListener('click', (e) => {
-        // 리액션 칩 클릭
         const chip = e.target.closest('.reaction-chip');
         if (chip) {
             toggleReaction(chip.dataset.doc, chip.dataset.emoji);
             return;
         }
-        // 리액션 트리거 버튼 클릭
         const trigger = e.target.closest('.reaction-trigger');
         if (trigger) {
-            // 이미 열린 피커 닫기
             document.querySelectorAll('.reaction-picker').forEach(el => el.remove());
             const msg = trigger.closest('.message');
             const docId = msg.id.replace('msg-', '');
@@ -369,14 +375,12 @@ window.addEventListener('load', async () => {
                 if (emoji) { toggleReaction(docId, emoji); picker.remove(); }
             });
             msg.appendChild(picker);
-            // 외부 클릭으로 닫기
             setTimeout(() => {
                 const close = (ev) => { if (!picker.contains(ev.target)) { picker.remove(); document.removeEventListener('click', close); } };
                 document.addEventListener('click', close);
             }, 50);
             return;
         }
-        // 투표 옵션 클릭
         const optBtn = e.target.closest('.poll-option-btn');
         if (optBtn) {
             votePoll(optBtn.dataset.doc, optBtn.dataset.option, JSON.parse(optBtn.dataset.options));
@@ -493,7 +497,7 @@ window.addEventListener('load', async () => {
         }, 50);
     });
 
-    // ===== 이벤트 리스너 (Firebase 전에 등록) =====
+    // ===== 이벤트 리스너 =====
 
     changeNameBtn.addEventListener('click', async () => {
         const oldName = userName;
@@ -524,22 +528,50 @@ window.addEventListener('load', async () => {
         } catch (err) { alert("오류: Firebase Rules 설정을 확인해주세요."); }
     });
 
+    // ===== 메시지 전송 로직 =====
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const message = messageInput.value.trim();
-        if (!message) return;
+        const rawMessage = messageInput.value.trim();
+        if (!rawMessage) return;
+
+        // 귓속말 문법 감지: /w 닉네임 내용 또는 /귓 닉네임 내용
+        const whisperMatch = rawMessage.match(/^\/(?:w|귓)\s+([^\s]+)\s+(.+)$/i);
+
         try {
-            await addDoc(collection(db, "shared_chat"), {
-                type: "normal", user: userName,
-                text: message, profilePic: userPic,
-                timestamp: Date.now(), reactions: {}
-            });
+            if (whisperMatch) {
+                const targetName = whisperMatch[1];
+                const text = whisperMatch[2];
+
+                await addDoc(collection(db, "shared_chat"), {
+                    type: "whisper",
+                    userId: userId,
+                    user: userName,
+                    targetName: targetName,
+                    text: text,
+                    profilePic: userPic,
+                    timestamp: Date.now(),
+                    reactions: {}
+                });
+            } else {
+                // 일반 메시지
+                await addDoc(collection(db, "shared_chat"), {
+                    type: "normal",
+                    userId: userId,
+                    user: userName,
+                    text: rawMessage,
+                    profilePic: userPic,
+                    timestamp: Date.now(),
+                    reactions: {}
+                });
+            }
             messageInput.value = '';
             messageInput.focus();
-        } catch (err) { console.error("전송 에러:", err); }
+        } catch (err) {
+            console.error("전송 에러:", err);
+        }
     });
 
-    // ===== 입장 (presence는 .info/connected 리스너가 자동 처리) =====
+    // ===== 입장 =====
     try {
         await cleanupOldFirestorePresence();
         await sendSystemMessage(`${userName}님이 입장하셨습니다.`);
@@ -547,6 +579,13 @@ window.addEventListener('load', async () => {
 
     // ===== 메시지 렌더링 함수 =====
     const renderMessage = (data, docId) => {
+        // 귓속말 권한 체크 (보낸 사람이나 받는 사람이 아니면 화면에 그리지 않음)
+        if (data.type === "whisper") {
+            const isSender = data.userId === userId || data.user === userName;
+            const isReceiver = data.targetName === userName;
+            if (!isSender && !isReceiver) return null;
+        }
+
         const div = document.createElement('div');
         div.id = `msg-${docId}`;
         div.classList.add('message');
@@ -582,6 +621,27 @@ window.addEventListener('load', async () => {
             return div;
         }
 
+        if (data.type === "whisper") {
+            const isMe = data.userId === userId || data.user === userName;
+            if (isMe) div.classList.add('my-message');
+            div.classList.add('whisper-message');
+
+            const tagText = isMe 
+                ? `🔒 [To ${escapeHtml(data.targetName)}] 귓속말` 
+                : `🔒 [From ${escapeHtml(data.user)}] 귓속말`;
+
+            div.innerHTML = `
+                <img src="${data.profilePic || defaultProfile}" class="chat-profile-pic"
+                     onerror="this.src='${defaultProfile}'">
+                <div class="message-content">
+                    <span class="whisper-tag">${tagText}</span>
+                    <span class="message-text">${escapeHtml(data.text)}</span>
+                    ${buildReactionBar(data.reactions, docId)}
+                </div>
+                <span class="reaction-trigger">😊+</span>`;
+            return div;
+        }
+
         // normal message
         const isMe = data.user === userName;
         if (isMe) div.classList.add('my-message');
@@ -606,9 +666,9 @@ window.addEventListener('load', async () => {
 
             if (change.type === "added") {
                 if (document.getElementById(`msg-${docId}`)) return;
-                chatMessages.appendChild(renderMessage(data, docId));
+                const msgEl = renderMessage(data, docId);
+                if (msgEl) chatMessages.appendChild(msgEl);
 
-                // 응원 컨페티
                 if (data.type === "cheer" && !isInitialLoad) {
                     fireConfetti(data.teamColor || '#E50914');
                 }
@@ -621,7 +681,6 @@ window.addEventListener('load', async () => {
                 if (data.type === "poll") {
                     existing.innerHTML = buildPollHtml(data, docId);
                 } else {
-                    // 리액션만 업데이트
                     const content = existing.querySelector('.message-content');
                     if (content) {
                         const oldBar = content.querySelector('.reaction-bar');
@@ -637,8 +696,10 @@ window.addEventListener('load', async () => {
             const added = snapshot.docChanges().filter(c => c.type === "added");
             if (added.length > 0) {
                 const latest = added[added.length - 1].doc.data();
-                if (latest.user !== userName && latest.type !== "system" && window.__isSoundOn?.())
+                const isForMe = latest.type !== "whisper" || latest.targetName === userName;
+                if (latest.user !== userName && latest.type !== "system" && isForMe && window.__isSoundOn?.()) {
                     playNotificationSound();
+                }
             }
         }
         isInitialLoad = false;
