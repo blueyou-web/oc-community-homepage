@@ -10,14 +10,38 @@
     <header class="netflix-header">
         <div class="logo">CHZZK TOGETHER</div>
         <div class="header-right">
-            <div class="lck-badge">🏆 LCK LIVE</div>
+            <div class="platform-switcher" id="platform-switcher">
+                <button class="platform-btn active" data-src="https://chzzk.naver.com" title="치지직으로 이동">치지직</button>
+                
+                <!-- SOOP 버튼 및 툴팁 -->
+                <div class="soop-tooltip-wrapper">
+                    <button class="platform-btn" data-src="https://www.sooplive.co.kr">SOOP</button>
+                    <div class="soop-tooltip">
+                        SOOP은 사이트 특성상 프레임으로 보기 어렵습니다.<br>방송을 누르면 새 탭이 열리는 구조입니다.
+                    </div>
+                </div>
+
+                <button id="platform-open-btn" class="netflix-btn-small" title="새 창에서 열기">⧉</button>
+
+                <!-- URL 직접 입력 기능 -->
+                <div class="custom-url-group">
+                    <input type="url" id="custom-url-input" placeholder="링크 주소 붙여넣기..." autocomplete="off">
+                    <button id="custom-url-btn" class="netflix-btn-small" title="입력한 주소로 이동">이동</button>
+                </div>
+            </div>
+            
             <div class="user-info">
-                <img id="profile-img" src="" alt="프로필" title="클릭해서 프로필 변경">
+                <img id="profile-img" src="" alt="프로필" title="클릭해서 프로필/이름 변경">
                 <span id="user-display-name">Guest</span>
                 <button id="theme-toggle-btn" class="netflix-btn-small" title="테마 전환">🌙</button>
-                <button id="change-name-btn" class="netflix-btn-small">이름 변경</button>
-                <button id="sound-toggle-btn" class="netflix-btn-small" title="알림음 켜기/끄기">🔔</button>
-                <button id="clear-chat-btn" class="netflix-btn-small danger">채팅 지우기</button>
+                <div class="chat-settings-wrapper">
+                    <button id="chat-settings-btn" class="netflix-btn-small" title="채팅 설정">⚙️ 채팅 설정</button>
+                    <div id="chat-settings-menu" class="chat-settings-menu">
+                        <button id="sound-toggle-btn" class="chat-settings-item">🔔 알림음 끄기</button>
+                        <button id="chat-toggle-btn" class="chat-settings-item">💬 채팅 접기</button>
+                        <button id="clear-chat-btn" class="chat-settings-item danger">🗑️ 채팅 지우기</button>
+                    </div>
+                </div>
             </div>
         </div>
     </header>
@@ -71,6 +95,8 @@
             <h2 class="avatar-modal-title">프로필 선택</h2>
             <p class="avatar-modal-subtitle">누가 보고 있나요?</p>
 
+            <input type="text" id="avatar-name-input" class="avatar-name-input" placeholder="표시할 이름" maxlength="20">
+
             <div class="avatar-section-label">🏆 LCK 팀</div>
             <div id="avatar-grid-lck" class="avatar-grid"></div>
 
@@ -79,7 +105,7 @@
 
             <div class="avatar-modal-actions">
                 <button id="avatar-cancel-btn" class="avatar-cancel-btn">취소</button>
-                <button id="avatar-confirm-btn" class="netflix-btn" disabled>선택 완료</button>
+                <button id="avatar-confirm-btn" class="netflix-btn">선택 완료</button>
             </div>
         </div>
     </div>
@@ -94,9 +120,8 @@
             if (!btn) return;
             var isOn = localStorage.getItem('chzzk_sound') !== 'off';
             function update() {
-                btn.textContent   = isOn ? '🔔' : '🔇';
-                btn.title         = isOn ? '알림음 끄기' : '알림음 켜기';
-                btn.style.opacity = isOn ? '1' : '0.45';
+                btn.textContent   = isOn ? '🔔 알림음 끄기' : '🔇 알림음 켜기';
+                btn.style.opacity = isOn ? '1' : '0.65';
             }
             update();
             btn.addEventListener('click', function () {
@@ -125,6 +150,112 @@
                 document.documentElement.setAttribute('data-theme', saved);
                 localStorage.setItem('chzzk_theme', saved);
                 update();
+            });
+        })();
+    </script>
+
+    <!-- 플랫폼 전환 및 직접 링크 이동 (인라인, 모듈 독립) -->
+    <script>
+        (function () {
+            var iframe  = document.getElementById('chzzk-player');
+            var openBtn = document.getElementById('platform-open-btn');
+            var buttons = document.querySelectorAll('.platform-btn');
+            var customUrlInput = document.getElementById('custom-url-input');
+            var customUrlBtn = document.getElementById('custom-url-btn');
+            if (!iframe) return;
+
+            var saved = localStorage.getItem('chzzk_platform_src') || iframe.src;
+
+            function applyPlatform(src) {
+                iframe.src = src;
+                buttons.forEach(function (b) {
+                    b.classList.toggle('active', b.dataset.src === src);
+                });
+                if (openBtn) openBtn.dataset.src = src;
+            }
+
+            applyPlatform(saved);
+
+            // 기본 플랫폼 탭 클릭
+            buttons.forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    applyPlatform(btn.dataset.src);
+                    localStorage.setItem('chzzk_platform_src', btn.dataset.src);
+                    if (customUrlInput) customUrlInput.value = '';
+                });
+            });
+
+            // 새 창 열기
+            if (openBtn) {
+                openBtn.addEventListener('click', function () {
+                    window.open(openBtn.dataset.src || iframe.src, '_blank', 'noopener');
+                });
+            }
+
+            // 커스텀 주소 이동
+            if (customUrlBtn && customUrlInput) {
+                customUrlBtn.addEventListener('click', function() {
+                    var url = customUrlInput.value.trim();
+                    if (url) {
+                        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                            url = 'https://' + url;
+                        }
+                        iframe.src = url;
+                        if (openBtn) openBtn.dataset.src = url;
+                        buttons.forEach(function (b) { b.classList.remove('active'); });
+                        localStorage.setItem('chzzk_platform_src', url);
+                    }
+                });
+                customUrlInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') customUrlBtn.click();
+                });
+            }
+        })();
+    </script>
+
+    <!-- 채팅 접기/펼치기 (인라인, 모듈 독립) -->
+    <script>
+        (function () {
+            var btn = document.getElementById('chat-toggle-btn');
+            var mainContainer = document.querySelector('.main-container');
+            if (!btn || !mainContainer) return;
+            var isHidden = localStorage.getItem('chzzk_chat_hidden') === 'true';
+            function update() {
+                mainContainer.classList.toggle('chat-hidden', isHidden);
+                btn.textContent = isHidden ? '💬 채팅 펼치기' : '💬 채팅 접기';
+            }
+            update();
+            btn.addEventListener('click', function () {
+                isHidden = !isHidden;
+                localStorage.setItem('chzzk_chat_hidden', isHidden);
+                update();
+            });
+        })();
+    </script>
+
+    <!-- 채팅 설정 드롭다운 (인라인, 모듈 독립) -->
+    <script>
+        (function () {
+            var btn  = document.getElementById('chat-settings-btn');
+            var menu = document.getElementById('chat-settings-menu');
+            if (!btn || !menu) return;
+
+            function closeMenu() {
+                menu.classList.remove('open');
+                document.removeEventListener('click', onDocClick);
+            }
+            function onDocClick(e) {
+                if (!menu.contains(e.target) && e.target !== btn) closeMenu();
+            }
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                if (menu.classList.contains('open')) { closeMenu(); return; }
+                menu.classList.add('open');
+                setTimeout(function () { document.addEventListener('click', onDocClick); }, 0);
+            });
+            // 메뉴 안의 항목을 누르면 메뉴를 닫아줌
+            menu.addEventListener('click', function (e) {
+                if (e.target.closest('.chat-settings-item')) setTimeout(closeMenu, 80);
             });
         })();
     </script>
