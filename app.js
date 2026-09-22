@@ -142,7 +142,6 @@ window.addEventListener('load', async () => {
     const messageInput      = document.getElementById('message-input');
     const chatMessages      = document.getElementById('chat-messages');
     const displayNameSpan   = document.getElementById('user-display-name');
-    const changeNameBtn     = document.getElementById('change-name-btn');
     const profileImg        = document.getElementById('profile-img');
     const clearChatBtn      = document.getElementById('clear-chat-btn');
     const participantToggle = document.getElementById('participant-toggle');
@@ -150,6 +149,7 @@ window.addEventListener('load', async () => {
     const userCountSpan     = document.getElementById('user-count');
     const toggleArrow       = participantToggle?.querySelector('.toggle-arrow');
     const avatarModal       = document.getElementById('avatar-modal');
+    const avatarNameInput   = document.getElementById('avatar-name-input');
     const avatarGrid        = document.getElementById('avatar-grid');
     const avatarGridLck     = document.getElementById('avatar-grid-lck');
     const avatarConfirmBtn  = document.getElementById('avatar-confirm-btn');
@@ -168,7 +168,6 @@ window.addEventListener('load', async () => {
         document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
         item.classList.add('selected');
         selectedAvatarUrl = url;
-        avatarConfirmBtn.disabled = false;
     };
 
     LCK_TEAMS.forEach((team) => {
@@ -211,27 +210,43 @@ window.addEventListener('load', async () => {
         avatarGrid.appendChild(item);
     });
 
-    // ===== 아바타 모달 =====
+    // ===== 아바타 모달 (프로필 사진 + 이름을 함께 변경) =====
     const openAvatarModal = () => {
-        selectedAvatarUrl = null;
-        avatarConfirmBtn.disabled = true;
+        selectedAvatarUrl = userPic;
+        avatarNameInput.value = userName;
         document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
         const escaped = userPic.replace(/"/g, '\\"');
         const match = document.querySelector(`.avatar-option[data-url="${escaped}"]`);
-        if (match) { match.classList.add('selected'); selectedAvatarUrl = userPic; avatarConfirmBtn.disabled = false; }
+        if (match) match.classList.add('selected');
         avatarModal.style.display = 'flex';
+        avatarNameInput.focus();
     };
     const closeAvatarModal = () => { avatarModal.style.display = 'none'; };
 
     avatarCancelBtn.addEventListener('click', closeAvatarModal);
     avatarModal.addEventListener('click', (e) => { if (e.target === avatarModal) closeAvatarModal(); });
     avatarConfirmBtn.addEventListener('click', async () => {
-        if (!selectedAvatarUrl) return;
-        userPic = selectedAvatarUrl;
-        localStorage.setItem('chzzk_pic', userPic);
-        profileImg.src = userPic;
+        const oldName  = userName;
+        const newName  = avatarNameInput.value.trim();
+        const picChanged  = selectedAvatarUrl && selectedAvatarUrl !== userPic;
+        const nameChanged = newName && newName !== oldName;
+        if (!picChanged && !nameChanged) { closeAvatarModal(); return; }
+
+        if (picChanged) {
+            userPic = selectedAvatarUrl;
+            localStorage.setItem('chzzk_pic', userPic);
+            profileImg.src = userPic;
+        }
+        if (nameChanged) {
+            userName = newName;
+            localStorage.setItem('chzzk_name', userName);
+            displayNameSpan.textContent = userName;
+        }
         closeAvatarModal();
-        try { await updatePresence(); } catch (_) {}
+        try {
+            await updatePresence();
+            if (nameChanged) await sendSystemMessage(`'${oldName}'님이 '${userName}'(으)로 이름을 변경했습니다.`);
+        } catch (err) { console.error("프로필 변경 에러:", err); }
     });
 
     // ===== Realtime DB 참여자 =====
@@ -511,20 +526,6 @@ window.addEventListener('load', async () => {
     });
 
     // ===== 이벤트 리스너 =====
-
-    changeNameBtn.addEventListener('click', async () => {
-        const oldName = userName;
-        const newName = prompt('새로운 이름을 입력하세요:', userName);
-        if (newName && newName.trim() && newName.trim() !== oldName) {
-            userName = newName.trim();
-            localStorage.setItem('chzzk_name', userName);
-            displayNameSpan.textContent = userName;
-            try {
-                await updatePresence();
-                await sendSystemMessage(`'${oldName}'님이 '${userName}'(으)로 이름을 변경했습니다.`);
-            } catch (err) { console.error("이름 변경 에러:", err); }
-        }
-    });
 
     profileImg.addEventListener('click', openAvatarModal);
 
