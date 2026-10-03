@@ -1,265 +1,804 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chzzk Together - LCK</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <header class="netflix-header">
-        <div class="logo">CHZZK TOGETHER</div>
-        <div class="header-right">
-            <div class="platform-switcher" id="platform-switcher">
-                <button class="platform-btn active" data-src="https://chzzk.naver.com/embed/live" title="치지직으로 이동">치지직</button>
-                
-                <!-- SOOP 버튼 및 툴팁 -->
-                <div class="soop-tooltip-wrapper">
-                    <button class="platform-btn" data-src="https://www.sooplive.co.kr">SOOP</button>
-                    <div class="soop-tooltip">
-                        SOOP은 사이트 특성상 프레임으로 보기 어렵습니다.<br>방송을 누르면 새 탭이 열리는 구조입니다.
+// =====================================================
+//  CHZZK Together — app.js (v2)
+// =====================================================
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import {
+    getFirestore, collection, addDoc, updateDoc, arrayUnion, arrayRemove,
+    query, orderBy, onSnapshot,
+    getDocs, writeBatch, doc, deleteDoc
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import {
+    getDatabase, ref, set, remove, onValue, onDisconnect
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+const firebaseConfig = {
+    apiKey:            "AIzaSyCokBoeWEMFP1lXa3TRyeiL4NZtJdPVkjM",
+    authDomain:        "qwqweqwe-17b83.firebaseapp.com",
+    projectId:         "qwqweqwe-17b83",
+    storageBucket:     "qwqweqwe-17b83.firebasestorage.app",
+    messagingSenderId: "687682911187",
+    appId:             "1:687682911187:web:f8a641d183e6f4bfd30d26",
+    databaseURL:       "https://qwqweqwe-17b83-default-rtdb.firebaseio.com"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db    = getFirestore(fbApp);
+const rtdb  = getDatabase(fbApp);
+
+// ===== 유저 정보 =====
+const defaultProfile = "https://api.dicebear.com/8.x/bottts/svg?seed=default&backgroundColor=333333";
+const userId   = localStorage.getItem('chzzk_uid') || Math.random().toString(36).substring(2, 10);
+localStorage.setItem('chzzk_uid', userId);
+let userName   = localStorage.getItem('chzzk_name') || `Guest_${Math.floor(Math.random() * 1000)}`;
+let userPic    = localStorage.getItem('chzzk_pic')  || defaultProfile;
+let amIHost    = false;
+let myJoinedAt = null;
+let isInitialLoad = true;
+
+// ===== LCK 팀 데이터 =====
+const makeLckSvg = (text, color, textColor = 'white') => {
+    const fs = text.length > 3 ? 20 : text.length > 2 ? 24 : 32;
+    return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='10' fill='%23${color}'/%3E%3Ctext x='50' y='55' text-anchor='middle' dominant-baseline='middle' font-family='Arial Black,Arial,sans-serif' font-weight='900' font-size='${fs}' fill='${textColor}'%3E${text}%3C/text%3E%3C/svg%3E`;
+};
+
+const LCK_TEAMS = [
+    { name: 'T1',                 color: '#E2012D', logo: makeLckSvg('T1',   'E2012D') },
+    { name: 'Gen.G',              color: '#AA8B2C', logo: makeLckSvg('GEN',  'AA8B2C') },
+    { name: 'Hanwha Life',        color: '#FF6B00', logo: makeLckSvg('HLE',  'FF6B00') },
+    { name: 'Dplus KIA',          color: '#5B2C8E', logo: makeLckSvg('DK',   '5B2C8E') },
+    { name: 'BNK FEARX',          color: '#F5C518', logo: makeLckSvg('FX',   'F5C518', '%23000') },
+    { name: 'KIWOOM DRX',         color: '#0A7DCF', logo: makeLckSvg('DRX',  '0A7DCF') },
+    { name: 'kt Rolster',         color: '#CC0000', logo: makeLckSvg('KT',   'CC0000') },
+    { name: 'DN SOOPers',         color: '#0B8457', logo: makeLckSvg('DN',   '0B8457') },
+    { name: 'Nongshim RedForce',  color: '#D32F2F', logo: makeLckSvg('NS',   'D32F2F') },
+    { name: 'HANJIN BRION',       color: '#1B5E20', logo: makeLckSvg('BRO',  '1B5E20') },
+];
+
+// ===== 리액션 이모지 =====
+const REACTIONS = ['👍', '🔥', '😂', '❤️', '👏'];
+
+// ===== 알림음 =====
+const playNotificationSound = () => {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const master = ctx.createGain();
+        master.gain.setValueAtTime(0.4, ctx.currentTime);
+        master.connect(ctx.destination);
+        const ding = (freq, startT, vol, decay) => {
+            const o = ctx.createOscillator();
+            const g = ctx.createGain();
+            o.connect(g); g.connect(master);
+            o.type = 'sine';
+            o.frequency.setValueAtTime(freq, ctx.currentTime + startT);
+            g.gain.setValueAtTime(0, ctx.currentTime + startT);
+            g.gain.linearRampToValueAtTime(vol, ctx.currentTime + startT + 0.008);
+            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startT + decay);
+            o.start(ctx.currentTime + startT);
+            o.stop(ctx.currentTime + startT + decay);
+            return o;
+        };
+        ding(1047, 0, 0.22, 0.18); ding(2093, 0, 0.06, 0.15);
+        ding(1319, 0.12, 0.24, 0.28);
+        const last = ding(2637, 0.12, 0.07, 0.26);
+        last.onended = () => ctx.close();
+    } catch (_) {}
+};
+
+// ===== 컨페티 애니메이션 =====
+const fireConfetti = (teamColor) => {
+    const canvas = document.getElementById('confetti-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const colors = [teamColor, '#f5c518', '#ffffff', teamColor, '#ff6b6b'];
+    const particles = Array.from({ length: 80 }, () => ({
+        x: Math.random() * canvas.width,
+        y: canvas.height + 10,
+        vx: (Math.random() - 0.5) * 10,
+        vy: -(Math.random() * 14 + 6),
+        size: Math.random() * 7 + 3,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        rot: Math.random() * 360,
+        rotV: (Math.random() - 0.5) * 12,
+        life: 1,
+    }));
+    const animate = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        let alive = false;
+        particles.forEach(p => {
+            p.vy += 0.18;
+            p.x += p.vx; p.y += p.vy;
+            p.rot += p.rotV; p.life -= 0.009;
+            if (p.life <= 0) return;
+            alive = true;
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot * Math.PI / 180);
+            ctx.globalAlpha = Math.min(p.life, 1);
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.55);
+            ctx.restore();
+        });
+        if (alive) requestAnimationFrame(animate);
+        else ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+    animate();
+};
+
+// ===== XSS 방지 =====
+const escapeHtml = (t = '') =>
+    t.replace(/&/g,'&amp;').replace(/</g,'&lt;')
+     .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+
+// =====================================================
+//  DOM LOAD
+// =====================================================
+(async () => {
+
+    // ===== DOM =====
+    const chatForm          = document.getElementById('chat-form');
+    const messageInput      = document.getElementById('message-input');
+    const chatMessages      = document.getElementById('chat-messages');
+    const displayNameSpan   = document.getElementById('user-display-name');
+    const profileImg        = document.getElementById('profile-img');
+    const clearChatBtn      = document.getElementById('clear-chat-btn');
+    const participantToggle = document.getElementById('participant-toggle');
+    const participantList   = document.getElementById('participant-list');
+    const userCountSpan     = document.getElementById('user-count');
+    const toggleArrow       = participantToggle?.querySelector('.toggle-arrow');
+    const avatarModal       = document.getElementById('avatar-modal');
+    const avatarNameInput   = document.getElementById('avatar-name-input');
+    const avatarGrid        = document.getElementById('avatar-grid');
+    const avatarGridLck     = document.getElementById('avatar-grid-lck');
+    const avatarConfirmBtn  = document.getElementById('avatar-confirm-btn');
+    const avatarCancelBtn   = document.getElementById('avatar-cancel-btn');
+    const cheerBtn          = document.getElementById('cheer-btn');
+    const pollBtn           = document.getElementById('poll-btn');
+
+    // ===== 유저 UI 초기화 =====
+    displayNameSpan.textContent = userName;
+    profileImg.src = userPic;
+
+    // ===== LCK 팀 아바타 그리드 =====
+    let selectedAvatarUrl = null;
+
+    const selectAvatar = (item, url) => {
+        document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
+        item.classList.add('selected');
+        selectedAvatarUrl = url;
+    };
+
+    LCK_TEAMS.forEach((team) => {
+        const item = document.createElement('div');
+        item.className = 'avatar-option';
+        item.dataset.url = team.logo;
+        item.innerHTML = `
+            <img src="${team.logo}" alt="${team.name}" loading="lazy">
+            <span class="avatar-label">${team.name}</span>
+            <div class="avatar-check">✓</div>`;
+        item.addEventListener('click', () => selectAvatar(item, team.logo));
+        avatarGridLck.appendChild(item);
+    });
+
+    // ===== 캐릭터 아바타 그리드 =====
+    const AVATARS = [
+        { url: 'https://api.dicebear.com/8.x/lorelei/svg?seed=Felix&backgroundColor=e50914',   label: 'Felix'  },
+        { url: 'https://api.dicebear.com/8.x/lorelei/svg?seed=Jasper&backgroundColor=1565c0',  label: 'Jasper' },
+        { url: 'https://api.dicebear.com/8.x/lorelei/svg?seed=Mimi&backgroundColor=2e7d32',    label: 'Mimi'   },
+        { url: 'https://api.dicebear.com/8.x/lorelei/svg?seed=Nova&backgroundColor=6a1b9a',    label: 'Nova'   },
+        { url: 'https://api.dicebear.com/8.x/bottts/svg?seed=Ranger&backgroundColor=bf360c',   label: 'Ranger' },
+        { url: 'https://api.dicebear.com/8.x/bottts/svg?seed=Pixel&backgroundColor=00695c',    label: 'Pixel'  },
+        { url: 'https://api.dicebear.com/8.x/bottts/svg?seed=Spark&backgroundColor=1a237e',    label: 'Spark'  },
+        { url: 'https://api.dicebear.com/8.x/bottts/svg?seed=Zyx&backgroundColor=4a148c',      label: 'Zyx'    },
+        { url: 'https://api.dicebear.com/8.x/fun-emoji/svg?seed=Leo&backgroundColor=e65100',   label: 'Leo'    },
+        { url: 'https://api.dicebear.com/8.x/fun-emoji/svg?seed=Coco&backgroundColor=004d40',  label: 'Coco'   },
+        { url: 'https://api.dicebear.com/8.x/fun-emoji/svg?seed=Luna&backgroundColor=880e4f',  label: 'Luna'   },
+        { url: 'https://api.dicebear.com/8.x/fun-emoji/svg?seed=Kai&backgroundColor=263238',   label: 'Kai'    },
+    ];
+
+    AVATARS.forEach((avatar) => {
+        const item = document.createElement('div');
+        item.className = 'avatar-option';
+        item.dataset.url = avatar.url;
+        item.innerHTML = `
+            <img src="${avatar.url}" alt="${avatar.label}" loading="lazy">
+            <span class="avatar-label">${avatar.label}</span>
+            <div class="avatar-check">✓</div>`;
+        item.addEventListener('click', () => selectAvatar(item, avatar.url));
+        avatarGrid.appendChild(item);
+    });
+
+    // ===== 아바타 모달 (프로필 사진 + 이름을 함께 변경) =====
+    const openAvatarModal = () => {
+        selectedAvatarUrl = userPic;
+        avatarNameInput.value = userName;
+        document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('selected'));
+        const escaped = userPic.replace(/"/g, '\\"');
+        const match = document.querySelector(`.avatar-option[data-url="${escaped}"]`);
+        if (match) match.classList.add('selected');
+        avatarModal.style.display = 'flex';
+        avatarNameInput.focus();
+    };
+    const closeAvatarModal = () => { avatarModal.style.display = 'none'; };
+
+    avatarCancelBtn.addEventListener('click', closeAvatarModal);
+    avatarModal.addEventListener('click', (e) => { if (e.target === avatarModal) closeAvatarModal(); });
+    avatarConfirmBtn.addEventListener('click', async () => {
+        const oldName  = userName;
+        const newName  = avatarNameInput.value.trim();
+        const picChanged  = selectedAvatarUrl && selectedAvatarUrl !== userPic;
+        const nameChanged = newName && newName !== oldName;
+        if (!picChanged && !nameChanged) { closeAvatarModal(); return; }
+
+        if (picChanged) {
+            userPic = selectedAvatarUrl;
+            localStorage.setItem('chzzk_pic', userPic);
+            profileImg.src = userPic;
+        }
+        if (nameChanged) {
+            userName = newName;
+            localStorage.setItem('chzzk_name', userName);
+            displayNameSpan.textContent = userName;
+        }
+        closeAvatarModal();
+        try {
+            await updatePresence();
+            if (nameChanged) await sendSystemMessage(`'${oldName}'님이 '${userName}'(으)로 이름을 변경했습니다.`);
+        } catch (err) { console.error("프로필 변경 에러:", err); }
+    });
+
+    // ===== Realtime DB 참여자 =====
+    const presenceRef     = ref(rtdb, `participants/${userId}`);
+    const allParticipants = ref(rtdb, 'participants');
+    const connectedRef    = ref(rtdb, '.info/connected');
+
+    if (!myJoinedAt) myJoinedAt = Date.now();
+
+    const updatePresence = async () => {
+        await onDisconnect(presenceRef).remove();
+        await set(presenceRef, { name: userName, pic: userPic, joinedAt: myJoinedAt });
+    };
+
+    // .info/connected 감시: 재연결 시 자동 재등록
+    onValue(connectedRef, (snap) => {
+        if (snap.val() !== true) return;
+        updatePresence().catch(err => {
+            console.error("Presence 등록 실패:", err);
+            if (String(err).includes('PERMISSION_DENIED')) {
+                console.error("⚠️ Firebase Realtime Database Rules에서 participants 경로의 read/write를 허용해주세요.");
+            }
+        });
+    });
+
+    // 최초 Presence 등록
+    // 대기하지 않음: 여기서 막히면 아래의 전송 핸들러 등록이 늦어져 새로고침됨
+    updatePresence().catch(err => console.error("최초 Presence 등록 실패:", err));
+
+    // 탭 닫을 때 정리
+    window.addEventListener('beforeunload', () => {
+        try { remove(presenceRef); } catch (_) {}
+    });
+
+    const cleanupOldFirestorePresence = async () => {
+        try { await deleteDoc(doc(db, "participants", userId)); } catch (_) {}
+    };
+
+    // 참여자 목록 렌더링
+    onValue(allParticipants, (snapshot) => {
+        const data = snapshot.val();
+        participantList.innerHTML = '';
+        if (!data) { userCountSpan.textContent = '0'; amIHost = false; participantsCache = []; return; }
+        const sorted = Object.entries(data).sort(([,a],[,b]) => a.joinedAt - b.joinedAt);
+        participantsCache = sorted
+            .filter(([uid]) => uid !== userId)
+            .map(([uid, p]) => ({ uid, name: p.name, pic: p.pic }));
+        sorted.forEach(([uid, p], i) => {
+            const isHost = (i === 0), isMe = (uid === userId);
+            if (isMe) amIHost = isHost;
+            const item = document.createElement('div');
+            item.className = 'participant-item' + (isMe ? ' is-me' : '');
+            item.style.cursor = isMe ? 'default' : 'pointer';
+            item.title = isMe ? '' : `${escapeHtml(p.name)}님에게 귓속말 보내기`;
+            item.innerHTML = `
+                <img src="${p.pic || defaultProfile}" class="participant-pic"
+                     onerror="this.src='${defaultProfile}'">
+                <div class="participant-info">
+                    <span class="participant-name">${escapeHtml(p.name)}</span>
+                    ${isHost ? '<span class="host-badge">👑 방장</span>' : ''}
+                    ${isMe   ? '<span class="me-badge">나</span>'        : ''}
+                </div>`;
+
+            // 참여자 클릭 시 귓속말 자동 완성 (루프 내부에서 연결)
+            if (!isMe) {
+                item.addEventListener('click', () => {
+                    messageInput.value = `/w ${p.name} `;
+                    messageInput.focus();
+                });
+            }
+
+            participantList.appendChild(item);
+        });
+        userCountSpan.textContent = sorted.length;
+    }, (err) => {
+        console.error("참여자 목록 읽기 실패:", err);
+        userCountSpan.textContent = '!';
+        participantList.innerHTML = `
+            <div style="padding:12px;font-size:0.78rem;color:#ff6b6b;text-align:center;line-height:1.5;">
+                ⚠️ Firebase Realtime Database 권한 오류<br>
+                <span style="color:var(--text-gray);">RTDB Rules에서 participants 경로의<br>read/write를 허용해주세요.</span>
+            </div>`;
+        participantList.style.display = 'flex';
+    });
+
+    let participantsCache = [];
+    let isPanelOpen = false;
+    participantToggle.addEventListener('click', () => {
+        isPanelOpen = !isPanelOpen;
+        participantList.style.display = isPanelOpen ? 'flex' : 'none';
+        toggleArrow?.classList.toggle('open', isPanelOpen);
+    });
+
+    // ===== 시스템 메시지 =====
+    const sendSystemMessage = async (text) => {
+        await addDoc(collection(db, "shared_chat"), { type: "system", text, timestamp: Date.now() });
+    };
+
+    // ===== 리액션 헬퍼 =====
+    const buildReactionBar = (reactions, docId) => {
+        if (!reactions || Object.keys(reactions).length === 0) return '';
+        let html = '<div class="reaction-bar">';
+        for (const [emoji, users] of Object.entries(reactions)) {
+            if (!users || users.length === 0) continue;
+            const isMine = users.includes(userId);
+            html += `<span class="reaction-chip${isMine ? ' mine' : ''}" data-doc="${docId}" data-emoji="${emoji}">
+                ${emoji} <span class="r-count">${users.length}</span></span>`;
+        }
+        html += '</div>';
+        return html;
+    };
+
+    const toggleReaction = async (docId, emoji) => {
+        try {
+            const msgRef = doc(db, "shared_chat", docId);
+            const chip = document.querySelector(`.reaction-chip[data-doc="${docId}"][data-emoji="${emoji}"]`);
+            if (chip && chip.classList.contains('mine')) {
+                await updateDoc(msgRef, { [`reactions.${emoji}`]: arrayRemove(userId) });
+            } else {
+                await updateDoc(msgRef, { [`reactions.${emoji}`]: arrayUnion(userId) });
+            }
+        } catch (err) { console.error("리액션 에러:", err); }
+    };
+
+    // 리액션 클릭 이벤트 위임
+    chatMessages.addEventListener('click', (e) => {
+        const replyBtn = e.target.closest('.reply-trigger');
+        if (replyBtn) {
+            const target = replyBtn.closest('.message')?.dataset.replyTarget;
+            if (target) {
+                messageInput.value = `/w ${target} `;
+                messageInput.focus();
+            }
+            return;
+        }
+        const chip = e.target.closest('.reaction-chip');
+        if (chip) {
+            toggleReaction(chip.dataset.doc, chip.dataset.emoji);
+            return;
+        }
+        const trigger = e.target.closest('.reaction-trigger');
+        if (trigger) {
+            document.querySelectorAll('.reaction-picker').forEach(el => el.remove());
+            const msg = trigger.closest('.message');
+            const docId = msg.id.replace('msg-', '');
+            const picker = document.createElement('div');
+            picker.className = 'reaction-picker';
+            picker.innerHTML = REACTIONS.map(e => `<span data-emoji="${e}">${e}</span>`).join('');
+            picker.addEventListener('click', (ev) => {
+                const emoji = ev.target.dataset?.emoji;
+                if (emoji) { toggleReaction(docId, emoji); picker.remove(); }
+            });
+            msg.appendChild(picker);
+            setTimeout(() => {
+                const close = (ev) => { if (!picker.contains(ev.target)) { picker.remove(); document.removeEventListener('click', close); } };
+                document.addEventListener('click', close);
+            }, 50);
+            return;
+        }
+        const optBtn = e.target.closest('.poll-option-btn');
+        if (optBtn) {
+            votePoll(optBtn.dataset.doc, optBtn.dataset.option, JSON.parse(optBtn.dataset.options));
+        }
+    });
+
+    // ===== 투표(Poll) 시스템 =====
+    const votePoll = async (docId, option, allOptions) => {
+        try {
+            const updates = {};
+            allOptions.forEach(opt => {
+                updates[`votes.${opt}`] = (opt === option) ? arrayUnion(userId) : arrayRemove(userId);
+            });
+            await updateDoc(doc(db, "shared_chat", docId), updates);
+        } catch (err) { console.error("투표 에러:", err); }
+    };
+
+    const buildPollHtml = (data, docId) => {
+        const votes = data.votes || {};
+        const total = Object.values(votes).reduce((s, arr) => s + (arr?.length || 0), 0);
+        let optHtml = '';
+        (data.options || []).forEach(opt => {
+            const count = votes[opt]?.length || 0;
+            const pct = total > 0 ? Math.round(count / total * 100) : 0;
+            const voted = votes[opt]?.includes(userId) ? ' voted' : '';
+            const optionsJson = escapeHtml(JSON.stringify(data.options));
+            optHtml += `
+                <button class="poll-option-btn${voted}" data-doc="${docId}" data-option="${escapeHtml(opt)}" data-options="${optionsJson}">
+                    <div class="poll-bar-fill" style="width:${pct}%"></div>
+                    <div class="poll-option-label">
+                        <span>${escapeHtml(opt)}</span>
+                        <span class="poll-pct">${pct}% (${count})</span>
                     </div>
+                </button>`;
+        });
+        return `<div class="poll-card">
+            <div class="poll-question"><span class="poll-icon">📊</span>${escapeHtml(data.question)}</div>
+            ${optHtml}
+            <div class="poll-total">${total}명 참여</div>
+        </div>`;
+    };
+
+    // 투표 생성 모달
+    const openPollModal = () => {
+        if (!amIHost) { alert("방장만 투표를 만들 수 있습니다!"); return; }
+        const overlay = document.createElement('div');
+        overlay.className = 'poll-modal-overlay';
+        overlay.innerHTML = `
+            <div class="poll-modal-card">
+                <h3>📊 투표 만들기</h3>
+                <input id="poll-q" type="text" placeholder="질문 (예: 이번 경기 승리팀은?)" maxlength="100">
+                <input id="poll-a" type="text" placeholder="선택지 1 (예: T1)" maxlength="30">
+                <input id="poll-b" type="text" placeholder="선택지 2 (예: Gen.G)" maxlength="30">
+                <div class="poll-modal-actions">
+                    <button class="avatar-cancel-btn" id="poll-cancel">취소</button>
+                    <button class="netflix-btn" id="poll-submit">만들기</button>
                 </div>
+            </div>`;
+        document.body.appendChild(overlay);
 
-                <button id="platform-open-btn" class="netflix-btn-small" title="새 창에서 열기">⧉</button>
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+        overlay.querySelector('#poll-cancel').addEventListener('click', () => overlay.remove());
+        overlay.querySelector('#poll-submit').addEventListener('click', async () => {
+            const q = overlay.querySelector('#poll-q').value.trim();
+            const a = overlay.querySelector('#poll-a').value.trim();
+            const b = overlay.querySelector('#poll-b').value.trim();
+            if (!q || !a || !b) { alert("모든 항목을 입력해주세요!"); return; }
+            try {
+                await addDoc(collection(db, "shared_chat"), {
+                    type: "poll", question: q,
+                    options: [a, b],
+                    votes: { [a]: [], [b]: [] },
+                    createdBy: userId, timestamp: Date.now()
+                });
+                overlay.remove();
+            } catch (err) { console.error("투표 생성 에러:", err); alert("투표 생성에 실패했습니다."); }
+        });
+    };
 
-                <!-- URL 직접 입력 기능 -->
-                <div class="custom-url-group">
-                    <input type="url" id="custom-url-input" placeholder="링크 주소 붙여넣기..." autocomplete="off">
-                    <button id="custom-url-btn" class="netflix-btn-small" title="입력한 주소로 이동">이동</button>
-                </div>
-            </div>
-            
-            <div class="user-info">
-                <img id="profile-img" src="" alt="프로필" title="클릭해서 프로필/이름 변경">
-                <span id="user-display-name">Guest</span>
-                <button id="theme-toggle-btn" class="netflix-btn-small" title="테마 전환">🌙</button>
-                <div class="chat-settings-wrapper">
-                    <button id="chat-settings-btn" class="netflix-btn-small" title="채팅 설정">⚙️ 채팅 설정</button>
-                    <div id="chat-settings-menu" class="chat-settings-menu">
-                        <button id="sound-toggle-btn" class="chat-settings-item">🔔 알림음 끄기</button>
-                        <button id="chat-toggle-btn" class="chat-settings-item">💬 채팅 접기</button>
-                        <button id="clear-chat-btn" class="chat-settings-item danger">🗑️ 채팅 지우기</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
+    pollBtn.addEventListener('click', openPollModal);
 
-    <main class="main-container">
-        <section class="video-section">
-            <div class="video-wrapper">
-                <iframe id="chzzk-player"
-                    src="https://chzzk.naver.com/embed/live"
-                    frameborder="0"
-                    allowfullscreen
-                    allow="autoplay; fullscreen">
-                </iframe>
-            </div>
-        </section>
+    // ===== 응원 시스템 =====
+    let cheerDropdown = null;
+    const closeCheerDropdown = () => { cheerDropdown?.remove(); cheerDropdown = null; };
 
-        <aside class="chat-section">
-            <!-- 참여자 패널 -->
-            <div class="participant-container">
-                <button id="participant-toggle" class="participant-toggle-btn">
-                    <span class="participant-toggle-left">
-                        <span class="live-dot"></span>
-                        <span>함께 보는 중</span>
+    cheerBtn.addEventListener('click', () => {
+        if (cheerDropdown) { closeCheerDropdown(); return; }
+        cheerDropdown = document.createElement('div');
+        cheerDropdown.className = 'cheer-dropdown';
+        LCK_TEAMS.forEach(team => {
+            const btn = document.createElement('button');
+            btn.className = 'cheer-team-btn';
+            btn.innerHTML = `<img src="${team.logo}" alt="${team.name}"><span>${team.name}</span>`;
+            btn.addEventListener('click', async () => {
+                closeCheerDropdown();
+                try {
+                    await addDoc(collection(db, "shared_chat"), {
+                        type: "cheer", user: userName, profilePic: userPic,
+                        teamName: team.name, teamColor: team.color, teamLogo: team.logo,
+                        timestamp: Date.now(), reactions: {}
+                    });
+                } catch (err) { console.error("응원 에러:", err); }
+            });
+            cheerDropdown.appendChild(btn);
+        });
+        cheerBtn.parentElement.appendChild(cheerDropdown);
+        setTimeout(() => {
+            const close = (ev) => {
+                if (!cheerDropdown?.contains(ev.target) && ev.target !== cheerBtn) {
+                    closeCheerDropdown(); document.removeEventListener('click', close);
+                }
+            };
+            document.addEventListener('click', close);
+        }, 50);
+    });
+
+    // ===== 이벤트 리스너 =====
+
+    profileImg.addEventListener('click', openAvatarModal);
+
+    clearChatBtn.addEventListener('click', async () => {
+        if (!amIHost) { alert("권한이 없습니다! 방장만 채팅을 지울 수 있습니다."); return; }
+        if (!confirm("정말 모든 채팅 내역을 삭제하시겠습니까?")) return;
+        try {
+            const snap = await getDocs(collection(db, "shared_chat"));
+            const batch = writeBatch(db);
+            snap.forEach((d) => batch.delete(d.ref));
+            await batch.commit();
+            chatMessages.innerHTML = '';
+            alert("채팅이 청소되었습니다!");
+        } catch (err) { alert("오류: Firebase Rules 설정을 확인해주세요."); }
+    });
+
+    // ===== 귓속말 자동완성 (/w 또는 /귓 뒤에 이름 입력 시 드롭다운) =====
+    const whisperBox = document.createElement('div');
+    whisperBox.className = 'whisper-suggestions';
+    whisperBox.style.display = 'none';
+    chatForm.appendChild(whisperBox);
+
+    let whisperMatches = [];
+    let whisperActiveIndex = -1;
+
+    const closeWhisperSuggestions = () => {
+        whisperBox.style.display = 'none';
+        whisperBox.innerHTML = '';
+        whisperMatches = [];
+        whisperActiveIndex = -1;
+    };
+
+    const highlightWhisperActive = () => {
+        whisperBox.querySelectorAll('.whisper-suggestion-item').forEach((el, i) => {
+            el.classList.toggle('active', i === whisperActiveIndex);
+        });
+    };
+
+    const renderWhisperSuggestions = (partial) => {
+        const lower = partial.toLowerCase();
+        whisperMatches = participantsCache.filter(p => p.name.toLowerCase().includes(lower));
+        if (whisperMatches.length === 0) { closeWhisperSuggestions(); return; }
+        whisperActiveIndex = 0;
+        whisperBox.innerHTML = whisperMatches.map((p, i) => `
+            <div class="whisper-suggestion-item${i === 0 ? ' active' : ''}" data-idx="${i}">
+                <img src="${p.pic || defaultProfile}" onerror="this.src='${defaultProfile}'">
+                <span>${escapeHtml(p.name)}</span>
+            </div>`).join('') +
+            `<div class="whisper-suggestion-hint">↑↓ 이동 · Enter/Tab 선택 · Esc 닫기</div>`;
+        whisperBox.style.display = 'block';
+    };
+
+    const applyWhisperSuggestion = (idx) => {
+        const p = whisperMatches[idx];
+        if (!p) return;
+        messageInput.value = `/w ${p.name} `;
+        closeWhisperSuggestions();
+        messageInput.focus();
+    };
+
+    whisperBox.addEventListener('click', (e) => {
+        const item = e.target.closest('.whisper-suggestion-item');
+        if (item) applyWhisperSuggestion(Number(item.dataset.idx));
+    });
+
+    messageInput.addEventListener('input', () => {
+        // "/w " 또는 "/귓 " 뒤에 아직 완성되지 않은 닉네임을 입력 중일 때만 드롭다운 표시
+        const typing = messageInput.value.match(/^\/(?:w|귓)\s+([^\s]*)$/i);
+        if (typing) renderWhisperSuggestions(typing[1]);
+        else closeWhisperSuggestions();
+    });
+
+    messageInput.addEventListener('keydown', (e) => {
+        if (whisperBox.style.display === 'none' || whisperMatches.length === 0) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            whisperActiveIndex = (whisperActiveIndex + 1) % whisperMatches.length;
+            highlightWhisperActive();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            whisperActiveIndex = (whisperActiveIndex - 1 + whisperMatches.length) % whisperMatches.length;
+            highlightWhisperActive();
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            applyWhisperSuggestion(whisperActiveIndex);
+        } else if (e.key === 'Escape') {
+            closeWhisperSuggestions();
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!chatForm.contains(e.target)) closeWhisperSuggestions();
+    });
+
+    // ===== 메시지 전송 로직 =====
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const rawMessage = messageInput.value.trim();
+        if (!rawMessage) return;
+
+        // 귓속말 문법 감지: /w 닉네임 내용 또는 /귓 닉네임 내용
+        const whisperMatch = rawMessage.match(/^\/(?:w|귓)\s+([^\s]+)\s+(.+)$/i);
+
+        try {
+            if (whisperMatch) {
+                const targetName = whisperMatch[1];
+                const text = whisperMatch[2];
+
+                await addDoc(collection(db, "shared_chat"), {
+                    type: "whisper",
+                    userId: userId,
+                    user: userName,
+                    targetName: targetName,
+                    text: text,
+                    profilePic: userPic,
+                    timestamp: Date.now(),
+                    reactions: {}
+                });
+            } else {
+                // 일반 메시지
+                await addDoc(collection(db, "shared_chat"), {
+                    type: "normal",
+                    userId: userId,
+                    user: userName,
+                    text: rawMessage,
+                    profilePic: userPic,
+                    timestamp: Date.now(),
+                    reactions: {}
+                });
+            }
+            messageInput.value = '';
+            messageInput.focus();
+        } catch (err) {
+            console.error("전송 에러:", err);
+        }
+    });
+
+    // ===== 입장 =====
+    try {
+        await cleanupOldFirestorePresence();
+        await sendSystemMessage(`${userName}님이 입장하셨습니다.`);
+    } catch (err) { console.error("입장 에러:", err); }
+
+    // ===== 메시지 렌더링 함수 =====
+    const renderMessage = (data, docId) => {
+        // 귓속말 권한 체크 (보낸 사람이나 받는 사람이 아니면 화면에 그리지 않음)
+        if (data.type === "whisper") {
+            const isSender = data.userId === userId || data.user === userName;
+            const isReceiver = data.targetName === userName;
+            if (!isSender && !isReceiver) return null;
+        }
+
+        const div = document.createElement('div');
+        div.id = `msg-${docId}`;
+        div.classList.add('message');
+
+        if (data.type === "system") {
+            div.classList.add('system');
+            div.innerHTML = `<span class="system-text">${escapeHtml(data.text)}</span>`;
+            return div;
+        }
+
+        if (data.type === "poll") {
+            div.classList.add('system');
+            div.innerHTML = buildPollHtml(data, docId);
+            return div;
+        }
+
+        if (data.type === "cheer") {
+            const isMe = data.user === userName;
+            if (isMe) div.classList.add('my-message');
+            div.classList.add('cheer-message');
+            div.innerHTML = `
+                <img src="${data.profilePic || defaultProfile}" class="chat-profile-pic"
+                     onerror="this.src='${defaultProfile}'">
+                <div class="message-content">
+                    <span class="message-user">${escapeHtml(data.user)}</span>
+                    <span class="message-text">
+                        <img src="${data.teamLogo}" class="cheer-team-logo">
+                        ${escapeHtml(data.teamName)} 응원합니다! 📣🎉
                     </span>
-                    <span class="participant-toggle-right">
-                        <span id="user-count" class="user-count-badge">0</span>
-                        <span class="toggle-arrow">▼</span>
-                    </span>
-                </button>
-                <div id="participant-list" class="participant-list"></div>
+                    ${buildReactionBar(data.reactions, docId)}
+                </div>
+                <span class="reaction-trigger">😊+</span>
+                ${!isMe ? '<span class="reply-trigger" title="귓속말로 답장">↩ 귓속말</span>' : ''}`;
+            if (!isMe) div.dataset.replyTarget = data.user;
+            return div;
+        }
+
+        if (data.type === "whisper") {
+            const isMe = data.userId === userId || data.user === userName;
+            if (isMe) div.classList.add('my-message');
+            div.classList.add('whisper-message');
+
+            const tagText = isMe 
+                ? `🔒 [To ${escapeHtml(data.targetName)}] 귓속말` 
+                : `🔒 [From ${escapeHtml(data.user)}] 귓속말`;
+
+            div.innerHTML = `
+                <img src="${data.profilePic || defaultProfile}" class="chat-profile-pic"
+                     onerror="this.src='${defaultProfile}'">
+                <div class="message-content">
+                    <span class="whisper-tag">${tagText}</span>
+                    <span class="message-text">${escapeHtml(data.text)}</span>
+                    ${buildReactionBar(data.reactions, docId)}
+                </div>
+                <span class="reaction-trigger">😊+</span>
+                ${!isMe ? '<span class="reply-trigger" title="귓속말로 답장">↩ 답장</span>' : ''}`;
+            if (!isMe) div.dataset.replyTarget = data.user;
+            return div;
+        }
+
+        // normal message
+        const isMe = data.user === userName;
+        if (isMe) div.classList.add('my-message');
+        div.innerHTML = `
+            <img src="${data.profilePic || defaultProfile}" class="chat-profile-pic"
+                 onerror="this.src='${defaultProfile}'">
+            <div class="message-content">
+                <span class="message-user">${escapeHtml(data.user)}</span>
+                <span class="message-text">${escapeHtml(data.text)}</span>
+                ${buildReactionBar(data.reactions, docId)}
             </div>
+            <span class="reaction-trigger">😊+</span>
+            ${!isMe ? '<span class="reply-trigger" title="귓속말로 답장">↩ 답장</span>' : ''}`;
+        if (!isMe) div.dataset.replyTarget = data.user;
+        return div;
+    };
 
-            <div id="chat-messages" class="chat-messages"></div>
+    // ===== 메시지 수신 =====
+    const q = query(collection(db, "shared_chat"), orderBy("timestamp", "asc"));
+    onSnapshot(q, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+            const data  = change.doc.data();
+            const docId = change.doc.id;
 
-            <!-- 응원 & 투표 버튼 -->
-            <div class="chat-action-bar" style="position:relative;">
-                <button id="cheer-btn" class="action-btn">📣 응원</button>
-                <button id="poll-btn" class="action-btn">📊 투표</button>
-            </div>
+            if (change.type === "added") {
+                if (document.getElementById(`msg-${docId}`)) return;
+                const msgEl = renderMessage(data, docId);
+                if (msgEl) chatMessages.appendChild(msgEl);
 
-            <form id="chat-form" class="chat-input-area">
-                <input type="text" id="message-input" placeholder="친구에게 메시지 보내기..." autocomplete="off" required>
-                <button type="submit" class="netflix-btn">전송</button>
-            </form>
-        </aside>
-    </main>
-
-    <!-- 아바타 픽커 모달 -->
-    <div id="avatar-modal" class="avatar-modal-overlay" style="display:none;">
-        <div class="avatar-modal-card">
-            <h2 class="avatar-modal-title">프로필 선택</h2>
-            <p class="avatar-modal-subtitle">누가 보고 있나요?</p>
-
-            <input type="text" id="avatar-name-input" class="avatar-name-input" placeholder="표시할 이름" maxlength="20">
-
-            <div class="avatar-section-label">🏆 LCK 팀</div>
-            <div id="avatar-grid-lck" class="avatar-grid"></div>
-
-            <div class="avatar-section-label">🎨 캐릭터</div>
-            <div id="avatar-grid" class="avatar-grid"></div>
-
-            <div class="avatar-modal-actions">
-                <button id="avatar-cancel-btn" class="avatar-cancel-btn">취소</button>
-                <button id="avatar-confirm-btn" class="netflix-btn">선택 완료</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 컨페티 캔버스 -->
-    <canvas id="confetti-canvas"></canvas>
-
-    <!-- 소리 토글 (인라인, 모듈 독립) -->
-    <script>
-        (function () {
-            var btn = document.getElementById('sound-toggle-btn');
-            if (!btn) return;
-            var isOn = localStorage.getItem('chzzk_sound') !== 'off';
-            function update() {
-                btn.textContent   = isOn ? '🔔 알림음 끄기' : '🔇 알림음 켜기';
-                btn.style.opacity = isOn ? '1' : '0.65';
-            }
-            update();
-            btn.addEventListener('click', function () {
-                isOn = !isOn;
-                localStorage.setItem('chzzk_sound', isOn ? 'on' : 'off');
-                update();
-            });
-            window.__isSoundOn = function () { return isOn; };
-        })();
-    </script>
-
-    <!-- 테마 토글 (인라인, 모듈 독립) -->
-    <script>
-        (function () {
-            var btn = document.getElementById('theme-toggle-btn');
-            if (!btn) return;
-            var saved = localStorage.getItem('chzzk_theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', saved);
-            function update() {
-                btn.textContent = saved === 'dark' ? '🌙' : '☀️';
-                btn.title       = saved === 'dark' ? '라이트 모드로' : '다크 모드로';
-            }
-            update();
-            btn.addEventListener('click', function () {
-                saved = saved === 'dark' ? 'light' : 'dark';
-                document.documentElement.setAttribute('data-theme', saved);
-                localStorage.setItem('chzzk_theme', saved);
-                update();
-            });
-        })();
-    </script>
-
-    <!-- 플랫폼 전환 및 직접 링크 이동 (인라인, 모듈 독립) -->
-    <script>
-        (function () {
-            var iframe  = document.getElementById('chzzk-player');
-            var openBtn = document.getElementById('platform-open-btn');
-            var buttons = document.querySelectorAll('.platform-btn');
-            var customUrlInput = document.getElementById('custom-url-input');
-            var customUrlBtn = document.getElementById('custom-url-btn');
-            if (!iframe) return;
-
-            var saved = localStorage.getItem('chzzk_platform_src') || iframe.src;
-
-            function applyPlatform(src) {
-                iframe.src = src;
-                buttons.forEach(function (b) {
-                    b.classList.toggle('active', b.dataset.src === src);
-                });
-                if (openBtn) openBtn.dataset.src = src;
+                if (data.type === "cheer" && !isInitialLoad) {
+                    fireConfetti(data.teamColor || '#E50914');
+                }
             }
 
-            applyPlatform(saved);
+            if (change.type === "modified") {
+                const existing = document.getElementById(`msg-${docId}`);
+                if (!existing) return;
 
-            // 기본 플랫폼 탭 클릭
-            buttons.forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    applyPlatform(btn.dataset.src);
-                    localStorage.setItem('chzzk_platform_src', btn.dataset.src);
-                    if (customUrlInput) customUrlInput.value = '';
-                });
-            });
-
-            // 새 창 열기
-            if (openBtn) {
-                openBtn.addEventListener('click', function () {
-                    window.open(openBtn.dataset.src || iframe.src, '_blank', 'noopener');
-                });
-            }
-
-            // 커스텀 주소 이동
-            if (customUrlBtn && customUrlInput) {
-                customUrlBtn.addEventListener('click', function() {
-                    var url = customUrlInput.value.trim();
-                    if (url) {
-                        if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                            url = 'https://' + url;
-                        }
-                        iframe.src = url;
-                        if (openBtn) openBtn.dataset.src = url;
-                        buttons.forEach(function (b) { b.classList.remove('active'); });
-                        localStorage.setItem('chzzk_platform_src', url);
+                if (data.type === "poll") {
+                    existing.innerHTML = buildPollHtml(data, docId);
+                } else {
+                    const content = existing.querySelector('.message-content');
+                    if (content) {
+                        const oldBar = content.querySelector('.reaction-bar');
+                        if (oldBar) oldBar.remove();
+                        const newBar = buildReactionBar(data.reactions, docId);
+                        if (newBar) content.insertAdjacentHTML('beforeend', newBar);
                     }
-                });
-                customUrlInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') customUrlBtn.click();
-                });
+                }
             }
-        })();
-    </script>
+        });
 
-    <!-- 채팅 접기/펼치기 (인라인, 모듈 독립) -->
-    <script>
-        (function () {
-            var btn = document.getElementById('chat-toggle-btn');
-            var mainContainer = document.querySelector('.main-container');
-            if (!btn || !mainContainer) return;
-            var isHidden = localStorage.getItem('chzzk_chat_hidden') === 'true';
-            function update() {
-                mainContainer.classList.toggle('chat-hidden', isHidden);
-                btn.textContent = isHidden ? '💬 채팅 펼치기' : '💬 채팅 접기';
+        if (!isInitialLoad) {
+            const added = snapshot.docChanges().filter(c => c.type === "added");
+            if (added.length > 0) {
+                const latest = added[added.length - 1].doc.data();
+                const isForMe = latest.type !== "whisper" || latest.targetName === userName;
+                if (latest.user !== userName && latest.type !== "system" && isForMe && window.__isSoundOn?.()) {
+                    playNotificationSound();
+                }
             }
-            update();
-            btn.addEventListener('click', function () {
-                isHidden = !isHidden;
-                localStorage.setItem('chzzk_chat_hidden', isHidden);
-                update();
-            });
-        })();
-    </script>
+        }
+        isInitialLoad = false;
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
 
-    <!-- 채팅 설정 드롭다운 (인라인, 모듈 독립) -->
-    <script>
-        (function () {
-            var btn  = document.getElementById('chat-settings-btn');
-            var menu = document.getElementById('chat-settings-menu');
-            if (!btn || !menu) return;
-
-            function closeMenu() {
-                menu.classList.remove('open');
-                document.removeEventListener('click', onDocClick);
-            }
-            function onDocClick(e) {
-                if (!menu.contains(e.target) && e.target !== btn) closeMenu();
-            }
-            btn.addEventListener('click', function (e) {
-                e.stopPropagation();
-                if (menu.classList.contains('open')) { closeMenu(); return; }
-                menu.classList.add('open');
-                setTimeout(function () { document.addEventListener('click', onDocClick); }, 0);
-            });
-            // 메뉴 안의 항목을 누르면 메뉴를 닫아줌
-            menu.addEventListener('click', function (e) {
-                if (e.target.closest('.chat-settings-item')) setTimeout(closeMenu, 80);
-            });
-        })();
-    </script>
-
-    <script type="module" src="app.js"></script>
-</body>
-</html>
+})(); // end init
