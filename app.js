@@ -657,6 +657,7 @@ const escapeHtml = (t = '') =>
             messageInput.focus();
         } catch (err) {
             console.error("전송 에러:", err);
+            alert("메시지 전송에 실패했어요. (" + (err.code || err.message) + ")" + "\nFirebase 규칙 또는 연결을 확인해주세요.");
         }
     });
 
@@ -799,6 +800,12 @@ const escapeHtml = (t = '') =>
         }
         isInitialLoad = false;
         chatMessages.scrollTop = chatMessages.scrollHeight;
+    }, (err) => {
+        console.error("채팅 기록 불러오기 실패:", err);
+        const warn = document.createElement('div');
+        warn.className = 'message system';
+        warn.textContent = "채팅 기록을 불러오지 못했어요. (" + (err.code || err.message) + ") Firebase 규칙을 확인해주세요.";
+        chatMessages.appendChild(warn);
     });
 
 })(); // end init
