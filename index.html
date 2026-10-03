@@ -50,7 +50,7 @@
         <section class="video-section">
             <div class="video-wrapper">
                 <iframe id="chzzk-player"
-                    src="https://chzzk.naver.com"
+                    src="https://chzzk.naver.com/embed/live"
                     frameborder="0"
                     allowfullscreen
                     allow="autoplay; fullscreen">
@@ -82,7 +82,7 @@
                 <button id="poll-btn" class="action-btn">📊 투표</button>
             </div>
 
-            <form id="chat-form" class="chat-input-area">
+            <form id="chat-form" class="chat-input-area" onsubmit="return false;">
                 <input type="text" id="message-input" placeholder="친구에게 메시지 보내기..." autocomplete="off" required>
                 <button type="submit" class="netflix-btn">전송</button>
             </form>
